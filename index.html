@@ -294,6 +294,17 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 
+/* Fin de séance */
+.finish-zone{display:flex;flex-direction:column;gap:8px}
+.finish-note{font-size:13px;color:var(--ink-3);text-align:center}
+.finish-note.err{color:var(--danger)}
+.finish-card{background:var(--ok-soft);border:1px solid var(--ok);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--ink)}
+.finish-card strong{font-family:var(--f-display);font-size:26px;text-transform:uppercase;color:var(--ok)}
+.finish-card .btn-ghost{background:var(--surface)}
+.next-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink-2)}
+.next-card h2{font-size:24px;text-transform:uppercase;color:var(--ink)}
+.fin-tag{color:var(--ok);font-weight:600}
+
 /* Éditeur de programme */
 .ed-head{display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .ed-title{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
@@ -617,6 +628,7 @@ function normalize(doc){
   const d = (doc.day && DAY_KEYS.indexOf(doc.day) >= 0) ? doc.day : (plannedDay(doc.date) || "lun");
   const s = {date: doc.date, day: d, v:2, exos:{}, modes:{}};
   if(doc.updatedAt) s.updatedAt = doc.updatedAt;
+  if(doc.finishedAt) s.finishedAt = doc.finishedAt;
   if(doc.type && !doc.day) s.legacy = true;
   const src = (doc.exos && typeof doc.exos === "object") ? doc.exos : {};
   Object.keys(src).forEach(id => { s.exos[id] = cleanSets(src[id]); });
@@ -627,7 +639,7 @@ function normalize(doc){
   });
   return applyPlan(s);
 }
-function serialize(s){ return {date:s.date, day:s.day, v:2, exos:clone(s.exos), modes:clone(s.modes)}; }
+function serialize(s){ const o = {date:s.date, day:s.day, v:2, exos:clone(s.exos), modes:clone(s.modes)}; if(s.finishedAt) o.finishedAt = s.finishedAt; return o; }
 function doneIn(s, id){ return (s.exos[id] || []).filter(isDone); }
 function donePlan(s){ return planItems(s.day).reduce((n,it) => n + Math.min(it.sets, doneIn(s, it.id).length), 0); }
 function doneAll(s){ return Object.keys(s.exos).reduce((n,id) => n + doneIn(s,id).length, 0); }
@@ -676,9 +688,19 @@ async function flush(){
   setStatus("local");
   stale.progres = stale.historique = true;
 }
-document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") flush(); });
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") flush(); else checkDayChange(); });
+let lastToday = todayIso();
+function checkDayChange(){
+  const t = todayIso(); if(t === lastToday) return;
+  const prev = lastToday; lastToday = t;
+  if(current && current.date === prev) openDate(t);
+}
+window.addEventListener("focus", checkDayChange);
+window.addEventListener("pageshow", checkDayChange);
+setInterval(checkDayChange, 30000);
 function onData(){
   stale.progres = stale.historique = true;
+  if(current && !dirty){ const saved = sessions.get(current.date); if(saved) current = normalize(clone(saved)); }
   if(!current) openDate(todayIso(), true);
   else renderSeance();
   if(activeTab === "progres") renderProgres();
@@ -686,8 +708,10 @@ function onData(){
 }
 
 /* ===================== Séance ===================== */
+let reviewFinished = false;
 async function openDate(iso, silent){
   if(!silent && dirty) await flush();
+  reviewFinished = false;
   const remote = sessions.get(iso);
   current = remote ? normalize(clone(remote)) : emptySession(iso, plannedDay(iso) || "lun");
   renderSeance();
@@ -742,6 +766,7 @@ function renderSeance(){
   let hint = D.edited ? "" : D.hint;
   if(planned === null) hint = "<b>Week-end : repos prévu.</b> Si tu t'entraînes quand même, choisis la séance à faire ci-dessus.";
   else if(planned !== current.day) hint = "<b>Séance du " + M.label.toLowerCase() + " faite un " + DAY_META[planned].label.toLowerCase() + ".</b> " + hint;
+  if(current.finishedAt && !reviewFinished){ v.innerHTML = finishedHTML(); return; }
   const picks = DAY_KEYS.map(k => '<button type="button" data-act="day" data-day="'+k+'" aria-pressed="'+(k===current.day)+'" aria-label="Séance du '+DAY_META[k].label.toLowerCase()+'" class="'+(k===planned?"planned":"")+'">'+DAY_META[k].label.slice(0,3)+'</button>').join("");
   let html = '<div class="day">'
     + '<div><p class="eyebrow">Séance du '+M.label.toLowerCase()+' · environ '+estMin(current.day)+' min</p><h1>'+esc(D.title)+'</h1><p class="date-sub">'+cap(fLong.format(d))+(isToday?" · aujourd'hui":"")+'</p></div>'
@@ -766,8 +791,27 @@ function renderSeance(){
   const inPlan = planItems(current.day).map(it => it.id);
   const extras = Object.keys(current.exos).filter(id => inPlan.indexOf(id) < 0 && doneIn(current, id).length);
   if(extras.length) html += '<div class="done-card"><strong>Aussi enregistré ce jour</strong>' + extras.map(id => '<span><b>'+esc(exoName(id))+'</b>'+(current.modes[id] ? ' ('+MODE_LABEL[current.modes[id]].toLowerCase()+')' : '')+' : <span class="num">'+doneIn(current,id).map(s => (s.kg ? fmt(s.kg)+"×" : "")+s.reps).join(" · ")+'</span></span>').join("") + '</div>';
-  html += '<div class="done-card"><strong>Séance enregistrée au fil de l\'eau</strong><span>Chaque série remplie est sauvegardée sur ce téléphone. Si la séance dépasse 55 minutes, saute le dernier module.</span></div>';
+  html += '<div class="finish-zone"><button type="button" class="btn-primary" data-act="finish">'+(current.finishedAt ? 'Enregistrer les corrections' : 'Terminer et enregistrer la séance')+'</button>'
+    + '<p class="finish-note" id="finishMsg">Chaque série est déjà sauvegardée au fur et à mesure. Ce bouton clôt la séance : la prochaine s\'ouvrira vide.</p></div>';
   v.innerHTML = html;
+}
+function nextSession(iso){
+  const d = dateOf(iso);
+  for(let k = 1; k <= 7; k++){ const n = new Date(d.getFullYear(), d.getMonth(), d.getDate()+k); const g = n.getDay(); if(g >= 1 && g <= 5) return {date:n, day:DAY_KEYS[g-1]}; }
+  return {date:d, day:"lun"};
+}
+function finishedHTML(){
+  const D = day(current.day), M = DAY_META[current.day], isToday = current.date === todayIso();
+  const fin = new Date(current.finishedAt), nx = nextSession(current.date);
+  const hm = isToday ? " à " + pad(fin.getHours()) + "h" + pad(fin.getMinutes()) : "";
+  return '<div class="day"><div><p class="eyebrow">Séance du '+M.label.toLowerCase()+'</p><h1>'+esc(D.title)+'</h1><p class="date-sub">'+cap(fLong.format(dateOf(current.date)))+(isToday?" · aujourd'hui":"")+'</p></div></div>'
+    + '<div class="finish-card"><strong>✓ Séance terminée</strong>'
+    + '<span class="num"><b>'+doneAll(current)+' séries</b> · '+fInt.format(tonnage(current))+' kg soulevés · enregistrée'+hm+'</span>'
+    + '<span>Elle est dans l\'Historique et compte dans tes courbes de Progrès.</span>'
+    + '<div class="backup-act"><button type="button" class="btn-ghost" data-act="review">Revoir ou corriger</button><button type="button" class="btn-ghost" data-act="goto-hist">Voir l\'historique</button></div></div>'
+    + '<div class="next-card"><p class="eyebrow">Prochaine séance</p><h2>'+esc(day(nx.day).title)+'</h2>'
+    + '<p>'+cap(fLong.format(nx.date))+' · environ '+estMin(nx.day)+' min · '+planTotal(nx.day)+' séries</p>'
+    + '<p>Elle s\'ouvrira vide ce jour-là, toute seule.</p></div>';
 }
 function refreshCounts(id){
   const it = itemOf(id); if(!it) return;
@@ -782,6 +826,7 @@ document.addEventListener("input", ev => {
   const el = ev.target;
   if(el.matches && el.matches("#view-seance input[data-exo]") && current){
     const id = el.dataset.exo, i = +el.dataset.i, f = el.dataset.f;
+    if(!el.isConnected || !current.exos[id] || !current.exos[id][i]) return;
     current.exos[id][i][f] = parseNum(el.value, f === "reps");
     const it = itemOf(id); if(it && !current.modes[id]) current.modes[id] = it.mode;
     refreshState(id, i); refreshCounts(id); scheduleSave();
@@ -794,6 +839,7 @@ document.addEventListener("change", ev => {
   if(el.dataset && el.dataset.ed){ onEditorChange(el); return; }
   if(!el.matches || !el.matches("#view-seance input[data-f='reps']") || !current) return;
   const id = el.dataset.exo, i = +el.dataset.i;
+  if(!el.isConnected || !current.exos[id] || !current.exos[id][i]) return;
   const s = current.exos[id][i];
   if(isDone(s) && s.kg == null){
     let kg = null;
@@ -1016,7 +1062,7 @@ function renderHistorique(){
   if(!list.length){ v.innerHTML = html + '<div class="empty-big"><strong>Aucune séance pour l\'instant</strong><span>Ouvre l\'onglet Séance et remplis tes séries : chaque séance apparaîtra ici.</span></div>'; return; }
   html += '<div class="hist">' + list.map(s => {
     const conf = pendingDelete === s.date;
-    const label = s.legacy ? "Ancien programme" : "Séance du " + DAY_META[s.day].label.toLowerCase() + " · " + esc(day(s.day).title);
+    const label = (s.legacy ? "Ancien programme" : "Séance du " + DAY_META[s.day].label.toLowerCase() + " · " + esc(day(s.day).title)) + (s.finishedAt ? ' · <span class="fin-tag">✓ terminée</span>' : '');
     return '<div class="hrow"><div class="hrow-main"><div class="d"><span>'+cap(fLong.format(dateOf(s.date)))+'</span></div><div class="m">'+label+'</div><div class="m num">'+doneAll(s)+' séries · '+fInt.format(tonnage(s))+' kg soulevés</div></div>'
       + '<div class="hrow-act"><button type="button" data-act="open" data-date="'+s.date+'">Ouvrir</button><button type="button" data-act="del" data-date="'+s.date+'"'+(conf?' class="confirm"':'')+'>'+(conf?'Confirmer':'Supprimer')+'</button></div></div>';
   }).join("") + '</div>';
@@ -1295,6 +1341,15 @@ document.addEventListener("click", ev => {
     const d = a.dataset.day; if(!current || DAY_KEYS.indexOf(d) < 0 || current.day === d) return;
     current.day = d; applyPlan(current); if(doneAll(current) > 0) scheduleSave(); renderSeance(); window.scrollTo(0,0);
   } else if(act === "edit-day"){ edDay = current ? current.day : edDay; try{ history.replaceState(null, "", "#programme"); }catch(e){} showTab("programme");
+  } else if(act === "finish"){
+    const m = $("#finishMsg");
+    if(!doneAll(current)){ if(m){ m.textContent = "Remplis au moins une série avant de terminer la séance."; m.classList.add("err"); } return; }
+    if(!current.finishedAt) current.finishedAt = new Date().toISOString();
+    dirty = true; flush();
+    if(dirty){ if(m){ m.textContent = "La séance n'a pas pu être enregistrée sur ce téléphone."; m.classList.add("err"); } return; }
+    stopTimer(); reviewFinished = false; renderSeance(); window.scrollTo(0,0);
+  } else if(act === "review"){ reviewFinished = true; renderSeance(); window.scrollTo(0,0);
+  } else if(act === "goto-hist"){ try{ history.replaceState(null, "", "#historique"); }catch(e){} showTab("historique");
   } else if(act === "today"){ openDate(todayIso());
   } else if(act === "rest"){ startTimer(+a.dataset.sec, a.dataset.label);
   } else if(act === "emom"){ startEmom(+a.dataset.min || 5);
@@ -1322,7 +1377,6 @@ if("serviceWorker" in navigator && (location.protocol === "https:" || location.h
 
 /* ===================== Démarrage ===================== */
 loadProgram();
-current = emptySession(todayIso(), plannedDay(todayIso()) || "lun");
 initStore();
 showTab((location.hash || "").replace("#","") || "seance");
 })();
