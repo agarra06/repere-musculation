@@ -1,5 +1,5 @@
 /* Repère Musculation : fonctionne hors connexion à la salle. */
-const CACHE = "repere-v6";
+const CACHE = "repere-v7";
 const SHELL = [
   "./",
   "./index.html",

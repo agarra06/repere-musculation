@@ -294,6 +294,10 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 
+/* Ouverte dans le navigateur */
+.notice-browser{background:var(--warn-soft);border:1px solid var(--warn);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink)}
+.notice-browser strong{font-family:var(--f-display);font-size:19px;text-transform:uppercase;color:var(--warn)}
+
 /* Fin de séance */
 .finish-zone{display:flex;flex-direction:column;gap:8px}
 .finish-note{font-size:13px;color:var(--ink-3);text-align:center}
@@ -587,11 +591,15 @@ const day = k => program.days[k];
 const planItems = k => day(k).blocs.flatMap(b => b.items);
 const planTotal = k => planItems(k).reduce((s,it) => s + it.sets, 0);
 const activeIds = () => { const out = []; DAY_KEYS.forEach(k => planItems(k).forEach(it => { if(out.indexOf(it.id) < 0) out.push(it.id); })); return out; };
+function blockSec(b){
+  if(b.emom) return b.emom * 60 + 60;
+  const r = blockRest(b), rest = r.reduce((s,x) => s + x, 0) / r.length;
+  return b.items.reduce((s,it) => s + it.sets * ((exo(it.id).side ? 90 : 45) + rest), 0) + 60;
+}
 function estMin(k){
   const bl = day(k).blocs; if(!bl.length) return 0;
-  let t = 5;
-  bl.forEach(b => { t += b.emom ? b.emom + 2 : b.items.reduce((s,it) => s + it.sets * (exo(it.id).side ? 3.2 : 2.3), 0) + 2; });
-  return Math.max(10, Math.round((t - 2)/5)*5);
+  const sec = 5*60 + bl.reduce((s,b) => s + blockSec(b), 0) + (bl.length - 1) * 120;
+  return Math.max(5, Math.round(sec / 60));
 }
 function blockTitle(b){ return (b.title && !b.edited) ? b.title : (b.emom ? "EMOM " : "") + (b.items.length ? b.items.map(it => exoName(it.id)).join(" ↔ ") : "Module vide"); }
 function blockRest(b){ return (b.rest && b.rest.length) ? b.rest : [90]; }
@@ -775,9 +783,9 @@ function renderSeance(){
     else if(weekendDoneSaturday(current.date)) hint = "<b>Séance du week-end déjà faite samedi : repos aujourd'hui.</b>";
   }
   else if(planned !== current.day) hint = "<b>Séance du " + M.label.toLowerCase() + " faite " + (planned === "we" ? "le week-end" : "un " + DAY_META[planned].label.toLowerCase()) + ".</b> " + hint;
-  if(current.finishedAt && !reviewFinished){ v.innerHTML = finishedHTML(); return; }
+  if(current.finishedAt && !reviewFinished){ v.innerHTML = browserNotice() + finishedHTML(); return; }
   const picks = DAY_KEYS.map(k => '<button type="button" data-act="day" data-day="'+k+'" aria-pressed="'+(k===current.day)+'" aria-label="Séance du '+DAY_META[k].label.toLowerCase()+'" class="'+(k===planned?"planned":"")+'">'+DAY_META[k].short+'</button>').join("");
-  let html = '<div class="day">'
+  let html = browserNotice() + '<div class="day">'
     + '<div><p class="eyebrow">Séance du '+M.label.toLowerCase()+' · environ '+estMin(current.day)+' min</p><h1>'+esc(D.title)+'</h1><p class="date-sub">'+cap(fLong.format(d))+(isToday?" · aujourd'hui":"")+'</p></div>'
     + '<div class="day-ctrl"><div class="daypick" role="group" aria-label="Choisir la séance">'+picks+'</div>'
     + '<div class="date-in"><input type="date" id="dateInput" value="'+current.date+'" aria-label="Date de la séance">'
@@ -809,6 +817,14 @@ function weekendDoneSaturday(iso){
   const sat = sessions.get(isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()-1)));
   if(!sat) return false; const s = normalize(clone(sat));
   return s.day === "we" && doneAll(s) > 0;
+}
+const IS_STANDALONE = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+function browserNotice(){
+  if(IS_STANDALONE || !IS_MOBILE) return "";
+  return '<div class="notice-browser"><strong>Tu es dans le navigateur, pas dans l\'app</strong>'
+    + '<span>Sur iPhone, l\'icône Repère de ton écran d\'accueil a sa propre mémoire. Ici, tu ne vois ni tes séances ni ton programme de l\'app, et ce que tu modifies ici n\'y ira pas.</span>'
+    + '<span><b>Ferme cette page et ouvre l\'icône Repère.</b> Si elle n\'est pas encore installée : Partager, puis « Sur l\'écran d\'accueil ».</span></div>';
 }
 function nextSession(iso){
   const d = dateOf(iso), weOn = day("we").blocs.length > 0;
@@ -846,6 +862,7 @@ document.addEventListener("input", ev => {
     const it = itemOf(id); if(it && !current.modes[id]) current.modes[id] = it.mode;
     refreshState(id, i); refreshCounts(id); scheduleSave();
   } else if(el.id === "pickSearch"){ picker.q = el.value; renderPickerList(); }
+  else if(el.dataset && el.dataset.ed) onEditorInput(el);
 });
 document.addEventListener("change", ev => {
   const el = ev.target;
@@ -1192,7 +1209,7 @@ function renderProgramme(){
   const vol = weeklyVolume();
   const volRows = MUSCLES.map(m => { const dn = round1(vol.d[m]), ind = round1(vol.i[m]); const tot = dn + ind; return '<tr><td>'+m+'</td><td class="n">'+fmt(dn)+'</td><td class="n">'+(ind ? "+ "+fmt(ind) : "–")+'</td><td>'+(tot >= 8 ? '<span class="vol-ok">✓ suffisant</span>' : '<span class="vol-low">à renforcer</span>')+'</td></tr>'; }).join("");
   const resetKey = "reset";
-  v.innerHTML = '<div class="section-h"><h1>Programme</h1><p class="lede">Modifie tes séances comme tu veux : séries, reps, lourd ou léger, ordre des modules. Glisse la poignée <b>⋮⋮</b> pour déplacer un module. Tout s\'enregistre sur ce téléphone et la séance du jour suit tes changements.</p></div>'
+  v.innerHTML = browserNotice() + '<div class="section-h"><h1>Programme</h1><p class="lede">Modifie tes séances comme tu veux : séries, reps, lourd ou léger, ordre des modules. Glisse la poignée <b>⋮⋮</b> pour déplacer un module. Tout s\'enregistre sur ce téléphone et la séance du jour suit tes changements.</p></div>'
     + '<div class="ed-head"><div class="daypick" role="group" aria-label="Séance à modifier">'+picks+'</div>'
     + '<label class="ed-title" for="edTitle">Nom de la séance du '+DAY_META[edDay].label.toLowerCase()+'<input id="edTitle" type="text" data-ed="title" value="'+esc(D.title)+'" autocomplete="off"></label>'
     + '<label class="ed-title" for="edWarm">Échauffement<input id="edWarm" type="text" data-ed="warm" value="'+esc(D.warm || "")+'" placeholder="Ex. 2 séries légères de presse" autocomplete="off"></label>'
@@ -1224,15 +1241,30 @@ function progChanged(b){
   if(current && current.day === edDay){ applyPlan(current); }
   renderProgramme();
 }
+function onEditorInput(el){
+  const f = el.dataset.ed, D = day(edDay);
+  if(f === "title"){ const t = el.value.trim(); if(t){ D.title = t; saveProgram(); } return; }
+  if(f === "warm"){ D.warm = el.value.trim(); saveProgram(); return; }
+  const b = D.blocs[+el.dataset.bi]; if(!b) return; const it = b.items[+el.dataset.ii]; if(!it) return;
+  const n = parseNum(el.value, true); if(n == null || n < 1 || n > 50) return;
+  if(f === "lo") it.reps[0] = n;
+  if(f === "hi") it.reps[1] = n;
+  markEdited(edDay, b); saveProgram();
+  if(current && current.day === edDay) applyPlan(current);
+}
 function onEditorChange(el){
   const f = el.dataset.ed, D = day(edDay);
-  if(f === "title"){ D.title = el.value.trim() || DAY_META[edDay].label; saveProgram(); renderProgramme(); return; }
+  if(f === "title"){ D.title = el.value.trim() || DAY_META[edDay].label; el.value = D.title; saveProgram(); return; }
   if(f === "warm"){ D.warm = el.value.trim(); saveProgram(); return; }
   const b = D.blocs[+el.dataset.bi]; if(!b) return; const it = b.items[+el.dataset.ii]; if(!it) return;
   let n = parseNum(el.value, true); if(n == null || n < 1) n = 1; n = Math.min(n, 50);
   if(f === "lo"){ it.reps[0] = n; if(it.reps[1] < n) it.reps[1] = n; }
   if(f === "hi"){ it.reps[1] = n; if(it.reps[0] > n) it.reps[0] = n; }
-  progChanged(b);
+  markEdited(edDay, b); saveProgram();
+  if(current && current.day === edDay) applyPlan(current);
+  // On met à jour les deux champs sans redessiner la page, pour garder le clavier ouvert sur le champ suivant
+  const row = el.closest(".reps-in");
+  if(row){ row.querySelector("[data-ed='lo']").value = it.reps[0]; row.querySelector("[data-ed='hi']").value = it.reps[1]; }
 }
 function onEditorClick(a){
   const act = a.dataset.act, D = day(edDay);
