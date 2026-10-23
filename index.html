@@ -198,8 +198,8 @@ a{color:var(--leger)}
 
 /* Choix de la séance */
 .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px}
-.daypick{display:flex;gap:6px;flex-wrap:wrap}
-.daypick button{min-width:46px;min-height:40px;padding:0 10px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.daypick{display:flex;gap:5px;flex-wrap:nowrap}
+.daypick button{flex:1 1 0;min-width:0;min-height:40px;padding:0 4px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
 .daypick button.planned{box-shadow:inset 0 -3px 0 var(--ink-3)}
 .daypick button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg);box-shadow:none}
 .exo-tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
@@ -214,7 +214,7 @@ a{color:var(--leger)}
 .section-h h1{font-size:34px;text-transform:uppercase}
 .lede{font-size:14px;color:var(--ink-2);max-width:62ch}
 .week{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px}
-.week-days{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.week-days{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 .wd{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
 .wd .disc{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:15px;border:2px dashed var(--line-2);color:var(--ink-3)}
 .wd .disc.lourd.done{background:var(--lourd);border:2px solid var(--lourd);color:var(--on-accent)}
@@ -343,6 +343,9 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .chips button{flex:none;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:0 12px;min-height:36px;font-size:13px;font-weight:600;color:var(--ink-2)}
 .chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .ed-actions{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.ed-actions .btn-ghost{width:100%;min-height:42px;border-radius:10px}
+.move-row{display:flex;flex-direction:column;gap:6px}
+.move-row .lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
 .btn-add{width:100%;min-height:44px;padding:0 14px;border:1.5px dashed var(--line-2);border-radius:10px;background:transparent;font-size:14px;font-weight:600;color:var(--ink-2)}
 .btn-primary{width:100%;min-height:50px;padding:0 16px;border:0;border-radius:12px;background:var(--ink);color:var(--bg);font-family:var(--f-display);font-weight:700;font-size:19px;letter-spacing:.06em;text-transform:uppercase}
 .btn-danger{min-height:42px;padding:0 14px;border:1px solid var(--line-2);border-radius:10px;background:transparent;font-size:13px;font-weight:600;color:var(--danger)}
@@ -471,8 +474,9 @@ L("katana","Katana triceps",{Triceps:1},{side:"bras", cue:"Poulie basse, coude p
 L("releves","Relevés de jambes",{Abdos:1},{zero:true, cue:"En appui sur la barre à dips. Monte les genoux vers la poitrine en enroulant le bassin, sans balancer."});
 
 /* ===================== Programme par défaut ===================== */
-const DAY_KEYS = ["lun","mar","mer","jeu","ven"];
-const DAY_META = {lun:{label:"Lundi",letter:"L"}, mar:{label:"Mardi",letter:"M"}, mer:{label:"Mercredi",letter:"M"}, jeu:{label:"Jeudi",letter:"J"}, ven:{label:"Vendredi",letter:"V"}};
+const DAY_KEYS = ["lun","mar","mer","jeu","ven","we"];
+const CORE_KEYS = ["lun","mar","mer","jeu","ven"];
+const DAY_META = {lun:{label:"Lundi",short:"Lun",letter:"L"}, mar:{label:"Mardi",short:"Mar",letter:"M"}, mer:{label:"Mercredi",short:"Mer",letter:"M"}, jeu:{label:"Jeudi",short:"Jeu",letter:"J"}, ven:{label:"Vendredi",short:"Ven",letter:"V"}, we:{label:"Week-end",short:"W-E",letter:"W"}};
 const DEFAULT_PROGRAM = {v:1, custom:{}, days:{
   lun:{title:"Dips et presse lourde", warm:"1 série de dips sans lest, 2 séries légères de presse.",
     gear:["Haltère et banc pour le rowing.","Barre chargée pour le hip thrust, à la fin.","Aucun réglage de poulie aujourd'hui."],
@@ -527,7 +531,8 @@ const DEFAULT_PROGRAM = {v:1, custom:{}, days:{
       {title:"Presse ↔ Curl", rest:[90,120], restTxt:"Au moins 2 min entre deux séries de presse", how:"Presse, repos, curl, repos. 3 tours, puis la 4e série de presse seule.",
         items:[{id:"presse",sets:4,reps:[6,10],mode:"lourd",effort:"RIR 1–2, jamais à l'échec"},{id:"curl",sets:3,reps:[10,12],mode:"lourd",effort:"Dernière série à l'échec possible"}]},
       {title:"Kickback ↔ Mollets", rest:[45,60], restTxt:"45–60 s entre les tours", how:"Kickback gauche puis droit, mollets gauche puis droit, repos. 3 tours.",
-        items:[{id:"kickback",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"},{id:"mollets",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"}]}]}
+        items:[{id:"kickback",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"},{id:"mollets",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"}]}]},
+  we:{title:"Petite séance du week-end", warm:"", blocs:[]}
 }};
 
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
@@ -554,14 +559,15 @@ const isDone = s => !!s && typeof s.reps === "number" && s.reps > 0;
 const clone = o => JSON.parse(JSON.stringify(o));
 const esc = t => String(t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid = () => "b" + Math.random().toString(36).slice(2, 9);
-function plannedDay(iso){ const g = dateOf(iso).getDay(); return g >= 1 && g <= 5 ? DAY_KEYS[g-1] : null; }
+function plannedDay(iso){ const g = dateOf(iso).getDay(); return g >= 1 && g <= 5 ? DAY_KEYS[g-1] : "we"; }
 function parseNum(v, int){ if(v==null) return null; const t = String(v).trim().replace(",","."); if(t==="") return null; const n = int ? parseInt(t,10) : parseFloat(t); return isFinite(n) && n >= 0 ? n : null; }
 
 /* ===================== Programme (modifiable) ===================== */
 let program = null;
-function validProgram(p){ return p && p.days && DAY_KEYS.every(k => p.days[k] && Array.isArray(p.days[k].blocs)); }
+function validProgram(p){ return p && p.days && CORE_KEYS.every(k => p.days[k] && Array.isArray(p.days[k].blocs)); }
 function prepProgram(p){
   p.custom = p.custom || {};
+  if(!p.days.we || !Array.isArray(p.days.we.blocs)) p.days.we = clone(DEFAULT_PROGRAM.days.we);
   DAY_KEYS.forEach(k => { p.days[k].blocs.forEach(b => { if(!b.id) b.id = uid(); b.items = (b.items || []).filter(it => it && it.id); }); });
   return p;
 }
@@ -735,7 +741,7 @@ function exoHTML(it, b){
   const doneN = Math.min(it.sets, arr.filter(isDone).length);
   const lastTxt = last
     ? 'Dernière fois en ' + MODE_LABEL[mode].toLowerCase() + ' (' + fShort.format(dateOf(last.date)) + ') : <b class="num">' + last.sets.map(s => (s.kg ? fmt(s.kg)+"×" : "") + s.reps).join(" · ") + '</b>' + sideTxt(id)
-    : "Pas encore de série " + MODE_LABEL[mode].toLowerCase() + " enregistrée pour cet exercice.";
+    : "Pas encore de série " + (mode === "lourd" ? "lourde" : "légère") + " enregistrée pour cet exercice.";
   const tag = sg.kind === "up" ? "Monte" : sg.kind === "warn" ? "Garde" : sg.kind === "same" ? "Objectif" : "Départ";
   const fillBtn = (sg.kg != null && sg.kg > 0) ? '<button type="button" data-act="fill" data-exo="'+id+'">Mettre '+fmt(sg.kg)+' kg</button>' : "";
   const ph = (sg.kg != null && sg.kg > 0) ? fmtIn(sg.kg) : (e.zero ? "0" : "kg");
@@ -764,10 +770,13 @@ function renderSeance(){
   const d = dateOf(current.date);
   const total = planTotal(current.day), done = donePlan(current);
   let hint = D.edited ? "" : D.hint;
-  if(planned === null) hint = "<b>Week-end : repos prévu.</b> Si tu t'entraînes quand même, choisis la séance à faire ci-dessus.";
-  else if(planned !== current.day) hint = "<b>Séance du " + M.label.toLowerCase() + " faite un " + DAY_META[planned].label.toLowerCase() + ".</b> " + hint;
+  if(planned === "we" && current.day === "we"){
+    if(!D.blocs.length) hint = "<b>Week-end : repos prévu.</b> Pour faire une petite séance le week-end, ajoute-lui des modules dans l'onglet Programme (jour W-E).";
+    else if(weekendDoneSaturday(current.date)) hint = "<b>Séance du week-end déjà faite samedi : repos aujourd'hui.</b>";
+  }
+  else if(planned !== current.day) hint = "<b>Séance du " + M.label.toLowerCase() + " faite " + (planned === "we" ? "le week-end" : "un " + DAY_META[planned].label.toLowerCase()) + ".</b> " + hint;
   if(current.finishedAt && !reviewFinished){ v.innerHTML = finishedHTML(); return; }
-  const picks = DAY_KEYS.map(k => '<button type="button" data-act="day" data-day="'+k+'" aria-pressed="'+(k===current.day)+'" aria-label="Séance du '+DAY_META[k].label.toLowerCase()+'" class="'+(k===planned?"planned":"")+'">'+DAY_META[k].label.slice(0,3)+'</button>').join("");
+  const picks = DAY_KEYS.map(k => '<button type="button" data-act="day" data-day="'+k+'" aria-pressed="'+(k===current.day)+'" aria-label="Séance du '+DAY_META[k].label.toLowerCase()+'" class="'+(k===planned?"planned":"")+'">'+DAY_META[k].short+'</button>').join("");
   let html = '<div class="day">'
     + '<div><p class="eyebrow">Séance du '+M.label.toLowerCase()+' · environ '+estMin(current.day)+' min</p><h1>'+esc(D.title)+'</h1><p class="date-sub">'+cap(fLong.format(d))+(isToday?" · aujourd'hui":"")+'</p></div>'
     + '<div class="day-ctrl"><div class="daypick" role="group" aria-label="Choisir la séance">'+picks+'</div>'
@@ -795,9 +804,15 @@ function renderSeance(){
     + '<p class="finish-note" id="finishMsg">Chaque série est déjà sauvegardée au fur et à mesure. Ce bouton clôt la séance : la prochaine s\'ouvrira vide.</p></div>';
   v.innerHTML = html;
 }
+function weekendDoneSaturday(iso){
+  const d = dateOf(iso); if(d.getDay() !== 0) return false;
+  const sat = sessions.get(isoOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()-1)));
+  if(!sat) return false; const s = normalize(clone(sat));
+  return s.day === "we" && doneAll(s) > 0;
+}
 function nextSession(iso){
-  const d = dateOf(iso);
-  for(let k = 1; k <= 7; k++){ const n = new Date(d.getFullYear(), d.getMonth(), d.getDate()+k); const g = n.getDay(); if(g >= 1 && g <= 5) return {date:n, day:DAY_KEYS[g-1]}; }
+  const d = dateOf(iso), weOn = day("we").blocs.length > 0;
+  for(let k = 1; k <= 7; k++){ const n = new Date(d.getFullYear(), d.getMonth(), d.getDate()+k); const g = n.getDay(); if(g >= 1 && g <= 5) return {date:n, day:DAY_KEYS[g-1]}; if(g === 6 && weOn) return {date:n, day:"we"}; }
   return {date:d, day:"lun"};
 }
 function finishedHTML(){
@@ -810,7 +825,7 @@ function finishedHTML(){
     + '<span>Elle est dans l\'Historique et compte dans tes courbes de Progrès.</span>'
     + '<div class="backup-act"><button type="button" class="btn-ghost" data-act="review">Revoir ou corriger</button><button type="button" class="btn-ghost" data-act="goto-hist">Voir l\'historique</button></div></div>'
     + '<div class="next-card"><p class="eyebrow">Prochaine séance</p><h2>'+esc(day(nx.day).title)+'</h2>'
-    + '<p>'+cap(fLong.format(nx.date))+' · environ '+estMin(nx.day)+' min · '+planTotal(nx.day)+' séries</p>'
+    + '<p>'+(nx.day === "we" ? "Samedi "+fDM.format(nx.date)+" ou dimanche "+fDM.format(new Date(nx.date.getFullYear(), nx.date.getMonth(), nx.date.getDate()+1)) : cap(fLong.format(nx.date)))+' · environ '+estMin(nx.day)+' min · '+planTotal(nx.day)+' séries</p>'
     + '<p>Elle s\'ouvrira vide ce jour-là, toute seule.</p></div>';
 }
 function refreshCounts(id){
@@ -1002,13 +1017,18 @@ function renderProgres(){
   let html = '<div class="section-h"><h1>Progrès</h1><p class="lede">Chaque point est ta <b>meilleure série</b> de la séance, convertie en force estimée : charge × (1 + reps ÷ 30). La courbe monte quand tu ajoutes des reps ou de la charge. Les séries lourdes (rouge) et légères (bleu) sont suivies séparément.</p></div>';
   const now = new Date(); const dow = (now.getDay()+6)%7; const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate()-dow);
   let doneW = 0, cells = "";
-  for(let k = 0; k < 5; k++){
+  const weOn = day("we").blocs.length > 0;
+  const hasSets = iso => { const s = sessions.get(iso); return !!s && doneAll(normalize(clone(s))) > 0; };
+  for(let k = 0; k < 6; k++){
     const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+k); const iso = isoOf(d);
-    const s = sessions.get(iso); const ok = s && doneAll(normalize(s)) > 0; if(ok) doneW++;
-    cells += '<div class="wd'+(iso===todayIso()?" today":"")+'"><div class="disc'+(ok?" done":"")+'" aria-label="'+cap(fLong.format(d))+(ok?" : séance faite":" : pas encore faite")+'">'+(ok?"✓":DAY_META[DAY_KEYS[k]].letter)+'</div><span>'+DAY_META[DAY_KEYS[k]].label.slice(0,3)+'</span></div>';
+    const sun = isoOf(new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+6));
+    const ok = k < 5 ? hasSets(iso) : (hasSets(iso) || hasSets(sun)); if(ok) doneW++;
+    const isToday = k < 5 ? iso === todayIso() : (iso === todayIso() || sun === todayIso());
+    const lbl = k < 5 ? cap(fLong.format(d)) : "Week-end";
+    cells += '<div class="wd'+(isToday?" today":"")+'"><div class="disc'+(ok?" done":"")+'" aria-label="'+lbl+(ok?" : séance faite":" : pas encore faite")+'">'+(ok?"✓":DAY_META[DAY_KEYS[k]].letter)+'</div><span>'+DAY_META[DAY_KEYS[k]].short+'</span></div>';
   }
   const all = sortedSessions("asc").filter(s => doneAll(s) > 0);
-  html += '<div class="week"><div class="week-days">'+cells+'</div><p><b>'+doneW+' séance'+(doneW>1?"s":"")+' sur 5</b> cette semaine'+(all.length ? ' · <b>'+all.length+'</b> au total depuis le '+fDM.format(dateOf(all[0].date)) : '')+'.</p></div>';
+  html += '<div class="week"><div class="week-days">'+cells+'</div><p><b>'+doneW+' séance'+(doneW>1?"s":"")+' sur '+(weOn ? 6 : 5)+'</b> cette semaine'+(all.length ? ' · <b>'+all.length+'</b> au total depuis le '+fDM.format(dateOf(all[0].date)).replace(/\.$/, "") : '')+'.</p></div>';
   if(!all.length){ v.innerHTML = html + '<div class="empty-big"><strong>Pas encore de données</strong><span>Remplis ta première séance dans l\'onglet Séance. Chaque exercice aura sa courbe ici, en lourd et en léger.</span></div>'; return; }
   let ups = 0, flats = 0;
   const act = activeIds();
@@ -1063,7 +1083,7 @@ function renderHistorique(){
   html += '<div class="hist">' + list.map(s => {
     const conf = pendingDelete === s.date;
     const label = (s.legacy ? "Ancien programme" : "Séance du " + DAY_META[s.day].label.toLowerCase() + " · " + esc(day(s.day).title)) + (s.finishedAt ? ' · <span class="fin-tag">✓ terminée</span>' : '');
-    return '<div class="hrow"><div class="hrow-main"><div class="d"><span>'+cap(fLong.format(dateOf(s.date)))+'</span></div><div class="m">'+label+'</div><div class="m num">'+doneAll(s)+' séries · '+fInt.format(tonnage(s))+' kg soulevés</div></div>'
+    return '<div class="hrow"><div class="hrow-main"><div class="d"><span>'+cap(fLong.format(dateOf(s.date)))+'</span></div><div class="m">'+label+'</div><div class="m num">'+doneAll(s)+' série'+(doneAll(s)>1?"s":"")+' · '+fInt.format(tonnage(s))+' kg soulevés</div></div>'
       + '<div class="hrow-act"><button type="button" data-act="open" data-date="'+s.date+'">Ouvrir</button><button type="button" data-act="del" data-date="'+s.date+'"'+(conf?' class="confirm"':'')+'>'+(conf?'Confirmer':'Supprimer')+'</button></div></div>';
   }).join("") + '</div>';
   v.innerHTML = html + '<p class="lede">Le volume compte charge × reps sur chaque série (× 2 pour les exercices faits d\'un côté puis de l\'autre).</p>';
@@ -1119,6 +1139,7 @@ function importData(file){
 
 /* ===================== Éditeur de programme ===================== */
 let edDay = plannedDay(todayIso()) || "lun";
+let edMove = null, edNotice = null;
 let edConfirm = null, edConfirmTimer = null;
 const REST_CHOICES = [45,60,90,120,180];
 const HANDLE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -1158,13 +1179,16 @@ function blocHTML(b, bi, nb){
     + (b.emom ? '' : '<div class="ed-row"><span class="lbl">Repos</span><span class="chips">'+REST_CHOICES.map(s => '<button type="button" data-act="b-rest" data-sec="'+s+'" data-bi="'+bi+'" aria-pressed="'+(blockRest(b)[0]===s)+'">'+(s>=120?(s/60)+" min":s+" s")+'</button>').join("")+'</span></div>')
     + b.items.map((it, ii) => itemHTML(b, bi, it, ii)).join("")
     + '<div class="ed-actions">'+(b.items.length < 3 ? '<button type="button" class="btn-add" data-act="i-add" data-bi="'+bi+'">+ Ajouter un exercice à ce module</button>' : '<p class="side-note">3 exercices maximum par module.</p>')
+    + (edMove === b.id
+      ? '<div class="move-row"><span class="lbl">Déplacer vers</span><span class="chips">'+DAY_KEYS.filter(k => k !== edDay).map(k => '<button type="button" data-act="b-moveto" data-day="'+k+'" data-bi="'+bi+'">'+DAY_META[k].short+'</button>').join("")+'<button type="button" data-act="b-move" data-bi="'+bi+'">Annuler</button></span></div>'
+      : '<button type="button" class="btn-ghost" data-act="b-move" data-bi="'+bi+'">Déplacer vers un autre jour</button>')
     + '<button type="button" class="btn-danger'+(edConfirm===delKey?" confirm":"")+'" data-act="b-del" data-bi="'+bi+'">'+(edConfirm===delKey?"Confirmer la suppression":"Supprimer le module")+'</button></div>'
     + '</li>';
 }
 function renderProgramme(){
   const v = $("#view-programme"); if(!v) return;
   const D = day(edDay);
-  const picks = DAY_KEYS.map(k => '<button type="button" data-act="ed-day" data-day="'+k+'" aria-pressed="'+(k===edDay)+'">'+DAY_META[k].label.slice(0,3)+'</button>').join("");
+  const picks = DAY_KEYS.map(k => '<button type="button" data-act="ed-day" data-day="'+k+'" aria-pressed="'+(k===edDay)+'">'+DAY_META[k].short+'</button>').join("");
   const vol = weeklyVolume();
   const volRows = MUSCLES.map(m => { const dn = round1(vol.d[m]), ind = round1(vol.i[m]); const tot = dn + ind; return '<tr><td>'+m+'</td><td class="n">'+fmt(dn)+'</td><td class="n">'+(ind ? "+ "+fmt(ind) : "–")+'</td><td>'+(tot >= 8 ? '<span class="vol-ok">✓ suffisant</span>' : '<span class="vol-low">à renforcer</span>')+'</td></tr>'; }).join("");
   const resetKey = "reset";
@@ -1172,10 +1196,12 @@ function renderProgramme(){
     + '<div class="ed-head"><div class="daypick" role="group" aria-label="Séance à modifier">'+picks+'</div>'
     + '<label class="ed-title" for="edTitle">Nom de la séance du '+DAY_META[edDay].label.toLowerCase()+'<input id="edTitle" type="text" data-ed="title" value="'+esc(D.title)+'" autocomplete="off"></label>'
     + '<label class="ed-title" for="edWarm">Échauffement<input id="edWarm" type="text" data-ed="warm" value="'+esc(D.warm || "")+'" placeholder="Ex. 2 séries légères de presse" autocomplete="off"></label>'
-    + '<p class="ed-sum num">'+D.blocs.length+' module'+(D.blocs.length>1?"s":"")+' · '+planTotal(edDay)+' séries · environ '+estMin(edDay)+' min</p></div>'
+    + '<p class="ed-sum num">'+D.blocs.length+' module'+(D.blocs.length>1?"s":"")+' · '+planTotal(edDay)+' séries · environ '+estMin(edDay)+' min</p>'
+    + (edDay === "we" ? '<p class="side-note">Une seule séance pour le samedi ou le dimanche : l\'app l\'ouvre les deux jours, et si elle est faite le samedi, le dimanche reste au repos.</p>' : '')
+    + (edNotice ? '<p class="io-msg">'+esc(edNotice)+'</p>' : '') + '</div>'
     + '<ol class="ed-blocs" id="edBlocs">'+D.blocs.map((b, bi) => blocHTML(b, bi, D.blocs.length)).join("")+'</ol>'
     + '<button type="button" class="btn-primary" data-act="b-new">+ Nouveau module</button>'
-    + '<section class="week"><h2 style="font-size:22px;text-transform:uppercase">Volume par semaine</h2><p>Séries dures par muscle sur les 5 séances, recalculées à chaque modification. Vise au moins 8 par muscle ; au-delà de 12–20, chaque série en plus rapporte moins. Un EMOM compte pour environ 60 % de ses minutes. La colonne « aide » compte à moitié le travail des muscles qui assistent : les dips et le développé pour les triceps, le rowing pour les biceps.</p>'
+    + '<section class="week"><h2 style="font-size:22px;text-transform:uppercase">Volume par semaine</h2><p>Séries dures par muscle sur toute la semaine, week-end compris, recalculées à chaque modification. Vise au moins 8 par muscle ; au-delà de 12–20, chaque série en plus rapporte moins. Un EMOM compte pour environ 60 % de ses minutes. La colonne « aide » compte à moitié le travail des muscles qui assistent : les dips et le développé pour les triceps, le rowing pour les biceps.</p>'
     + '<div class="tbl-wrap"><table><thead><tr><th>Muscle</th><th>Direct</th><th>Aide</th><th>État</th></tr></thead><tbody>'+volRows+'</tbody></table></div></section>'
     + '<details class="more"><summary>Les règles du programme</summary><ul class="rules">'
     + '<li><b>Série dure :</b> finie à 1–2 reps de l\'échec. L\'échauffement ne compte pas.</li>'
@@ -1212,9 +1238,18 @@ function onEditorClick(a){
   const act = a.dataset.act, D = day(edDay);
   const bi = a.dataset.bi != null ? +a.dataset.bi : -1, ii = a.dataset.ii != null ? +a.dataset.ii : -1;
   const b = bi >= 0 ? D.blocs[bi] : null;
-  if(act === "ed-day"){ edDay = a.dataset.day; edConfirm = null; renderProgramme(); window.scrollTo(0,0); return true; }
+  if(act !== "b-moveto") edNotice = null;
+  if(act === "ed-day"){ edDay = a.dataset.day; edConfirm = null; edMove = null; renderProgramme(); window.scrollTo(0,0); return true; }
   if(act === "b-up" && b && bi > 0){ D.blocs.splice(bi-1, 0, D.blocs.splice(bi, 1)[0]); progChanged(null); return true; }
   if(act === "b-down" && b && bi < D.blocs.length-1){ D.blocs.splice(bi+1, 0, D.blocs.splice(bi, 1)[0]); progChanged(null); return true; }
+  if(act === "b-move" && b){ edMove = edMove === b.id ? null : b.id; renderProgramme(); return true; }
+  if(act === "b-moveto" && b){
+    const to = a.dataset.day; if(DAY_KEYS.indexOf(to) < 0 || to === edDay) return true;
+    D.blocs.splice(bi, 1); day(to).blocs.push(b); markEdited(to, null); edMove = null;
+    edNotice = "Module « " + blockTitle(b) + " » déplacé vers " + (to === "we" ? "le week-end" : "le " + DAY_META[to].label.toLowerCase()) + ".";
+    if(current && current.day === to) applyPlan(current);
+    progChanged(null); return true;
+  }
   if(act === "b-del" && b){ const key = "b:" + b.id; if(edConfirm === key){ edConfirm = null; D.blocs.splice(bi, 1); progChanged(null); } else { askConfirm(key); renderProgramme(); } return true; }
   if(act === "b-emom" && b){ const on = a.dataset.on === "1"; if(on && !b.emom){ b.emom = 5; b.items.forEach(it => { it.sets = b.items.length === 1 ? 5 : Math.ceil(5 / b.items.length); }); } else if(!on && b.emom){ delete b.emom; b.items.forEach(it => { it.sets = Math.min(it.sets, 4); }); } progChanged(b); return true; }
   if(act === "b-emin" && b && b.emom){ b.emom = Math.max(1, Math.min(30, b.emom + (+a.dataset.d))); if(b.items.length === 1) b.items[0].sets = b.emom; progChanged(b); return true; }
