@@ -547,6 +547,8 @@ const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
   we:{title:"Repos", warm:"", blocs:[]}
 }};
 
+const APP_VERSION = "9";
+let swReg = null;
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
 const LS_KEY = "repere-musculation-seances";
 const LS_PROG = "repere-musculation-programme";
@@ -1297,6 +1299,7 @@ function renderProgramme(){
     + '<li><a href="https://www.strongerbyscience.com/?p=62454" target="_blank" rel="noopener">Leg curl assis vs Nordic curl</a></li>'
     + '<li><a href="https://bjsm.bmj.com/content/52/6/376" target="_blank" rel="noopener">Morton et al. 2018, protéines</a></li></ul></details>'
     + (sideProgram() ? '<div class="side-prog"><strong>Programme mis de côté</strong><span>Ton programme précédent est gardé sur ce téléphone, avec toutes tes modifications. Tu peux échanger les deux à tout moment.</span><button type="button" class="btn-ghost'+(edConfirm==="side"?" confirm":"")+'" data-act="prog-side">'+(edConfirm==="side"?"Confirmer l\'échange":"Reprendre le programme mis de côté")+'</button></div>' : '')
+    + '<div class="side-prog"><strong>Version '+APP_VERSION+'</strong><span>L\'app se met à jour toute seule quand une nouvelle version est en ligne. Ce bouton force la vérification ; tes séances et ton programme ne bougent pas.</span><button type="button" class="btn-ghost" data-act="check-update">Rechercher une mise à jour</button></div>'
     + '<button type="button" class="btn-danger'+(edConfirm===resetKey?" confirm":"")+'" data-act="prog-reset">'+(edConfirm===resetKey?"Confirmer : revenir au programme Upper / Lower de départ":"Revenir au programme Upper / Lower de départ")+'</button>';
 }
 function progChanged(b){
@@ -1360,6 +1363,7 @@ function onEditorClick(a){
   if(act === "i-add" && b){ openPicker({mode:"add", bi}); return true; }
   if(act === "i-swap" && b){ openPicker({mode:"swap", bi, ii}); return true; }
   if(act === "b-new"){ openPicker({mode:"new"}); return true; }
+  if(act === "check-update"){ checkUpdate(true); return true; }
   if(act === "prog-side"){
     if(edConfirm === "side"){
       edConfirm = null; const other = sideProgram(); if(!other) return true;
@@ -1520,8 +1524,31 @@ document.addEventListener("click", ev => {
 });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape" && picker) closePicker(); });
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
-  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => { swReg = r; }).catch(() => {});
+    checkUpdate();
+  });
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if(!reloading && sessionGet("repere-reload") !== APP_VERSION + ":cc"){ reloading = true; sessionSet("repere-reload", APP_VERSION + ":cc"); flush(); location.reload(); } });
 }
+/* ===================== Mises à jour ===================== */
+function sessionGet(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }
+function sessionSet(k, v){ try{ sessionStorage.setItem(k, v); }catch(e){} }
+async function hardReload(){
+  try{ await flush(); }catch(e){}
+  try{ if(swReg) await swReg.update(); }catch(e){}
+  try{ const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }catch(e){}
+  location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+}
+async function checkUpdate(manual){
+  try{ if(swReg) swReg.update(); }catch(e){}
+  let v = null;
+  try{ const r = await fetch("version.txt?t=" + Date.now(), {cache:"no-store"}); if(r.ok) v = (await r.text()).trim(); }catch(e){}
+  if(manual){ if(v && v !== APP_VERSION) hardReload(); else { edNotice = v ? "Tu as déjà la dernière version (" + APP_VERSION + ")." : "Pas de connexion : impossible de vérifier pour l'instant."; renderProgramme(); } return; }
+  // Nouvelle version en ligne : on recharge une seule fois automatiquement
+  if(v && v !== APP_VERSION && sessionGet("repere-reload") !== v){ sessionSet("repere-reload", v); hardReload(); }
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") checkUpdate(); });
 
 /* ===================== Démarrage ===================== */
 loadProgram();

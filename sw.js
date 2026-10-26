@@ -1,5 +1,5 @@
-/* Repère Musculation : fonctionne hors connexion à la salle. */
-const CACHE = "repere-v8";
+/* Repère Musculation : fonctionne hors connexion à la salle, et se met à jour toute seule. */
+const CACHE = "repere-v9";
 const SHELL = [
   "./",
   "./index.html",
@@ -10,34 +10,52 @@ const SHELL = [
   "./icons/icon-maskable-512.png"
 ];
 
+// Toujours aller chercher la dernière version sur le serveur, sans passer par le cache du téléphone.
+const fresh = (url) => fetch(url, { cache: "no-store", credentials: "same-origin" });
+
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => Promise.all(SHELL.map((u) => fresh(u).then((r) => { if (r.ok) return c.put(u, r); }).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  const ready = caches.keys()
+    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim());
+  e.waitUntil(ready);
+  // Les pages déjà ouvertes avec l'ancienne version se rechargent sur la nouvelle,
+  // une fois le service worker actif (sinon le rechargement attendrait le service worker lui-même).
+  ready.then(() => new Promise((r) => setTimeout(r, 300)))
+    .then(() => self.clients.matchAll({ type: "window" }))
+    .then((cs) => cs.forEach((c) => { if (c.navigate) c.navigate(c.url).catch(() => {}); }));
 });
+
+self.addEventListener("message", (e) => { if (e.data === "skip") self.skipWaiting(); });
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // La page : réseau d'abord (pour recevoir les mises à jour), sinon la copie en cache.
+  // La page : toujours la version du serveur ; la copie en cache ne sert que hors connexion.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
+      fresh(req.url)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("./index.html", copy));
+          if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("./index.html", copy)); }
           return res;
         })
         .catch(() => caches.match("./index.html").then((r) => r || caches.match("./")))
     );
+    return;
+  }
+
+  // Fichier de version : jamais en cache.
+  if (url.origin === self.location.origin && url.pathname.endsWith("/version.txt")) {
+    e.respondWith(fresh(req.url).catch(() => new Response("", { status: 504 })));
     return;
   }
 
