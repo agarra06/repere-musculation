@@ -547,7 +547,7 @@ const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
   we:{title:"Repos", warm:"", blocs:[]}
 }};
 
-const APP_VERSION = "9";
+const APP_VERSION = "10";
 let swReg = null;
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
 const LS_KEY = "repere-musculation-seances";
@@ -1196,7 +1196,14 @@ function importData(file){
     });
     persistLocal();
     let progMsg = "";
-    if(validProgram(o.programme)){ program = prepProgram(o.programme); saveProgram(); renderProgramme(); progMsg = " Programme restauré."; }
+    if(validProgram(o.programme)){
+      // Le programme de la sauvegarde est mis de côté : un bouton en bas de Programme permet de le reprendre
+      if(JSON.stringify(o.programme.days) !== JSON.stringify(program.days)){
+        try{ localStorage.setItem(LS_OLD, JSON.stringify(o.programme)); }catch(e){}
+        progMsg = " Le programme de la sauvegarde est mis de côté : en bas de l'onglet Programme, « Reprendre le programme mis de côté » permet de l'utiliser.";
+        renderProgramme();
+      }
+    }
     if(current && !dirty){ const sv = sessions.get(current.date); current = sv ? normalize(clone(sv)) : applyPlan(current); }
     stale.progres = stale.historique = true;
     renderSeance();
