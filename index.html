@@ -294,6 +294,12 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 
+/* Programme mis de côté */
+.side-prog{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--ink-2)}
+.side-prog strong{font-family:var(--f-display);font-size:20px;text-transform:uppercase;color:var(--ink)}
+.side-prog .btn-ghost.confirm{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.reps-max{font-family:var(--f-display);font-weight:700;font-size:20px;color:var(--ink)}
+
 /* Ouverte dans le navigateur */
 .notice-browser{background:var(--warn-soft);border:1px solid var(--warn);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink)}
 .notice-browser strong{font-family:var(--f-display);font-size:19px;text-transform:uppercase;color:var(--warn)}
@@ -481,62 +487,64 @@ L("releves","Relevés de jambes",{Abdos:1},{zero:true, cue:"En appui sur la barr
 const DAY_KEYS = ["lun","mar","mer","jeu","ven","we"];
 const CORE_KEYS = ["lun","mar","mer","jeu","ven"];
 const DAY_META = {lun:{label:"Lundi",short:"Lun",letter:"L"}, mar:{label:"Mardi",short:"Mar",letter:"M"}, mer:{label:"Mercredi",short:"Mer",letter:"M"}, jeu:{label:"Jeudi",short:"Jeu",letter:"J"}, ven:{label:"Vendredi",short:"Ven",letter:"V"}, we:{label:"Week-end",short:"W-E",letter:"W"}};
-const DEFAULT_PROGRAM = {v:1, custom:{}, days:{
-  lun:{title:"Dips et presse lourde", warm:"1 série de dips sans lest, 2 séries légères de presse.",
-    gear:["Haltère et banc pour le rowing.","Barre chargée pour le hip thrust, à la fin.","Aucun réglage de poulie aujourd'hui."],
-    hint:"Deux exercices lourds : dips puis presse, chacun alterné avec un exercice léger. Le hip thrust de la fin reste modéré.",
+const SEP = "__";
+const baseId = id => String(id).split(SEP)[0];
+const phaseNo = id => { const p = String(id).split(SEP)[1]; return p ? +p : 1; };
+const PI = (id, sets, lo, hi, mode, x) => Object.assign({id, sets, reps:[lo,hi], mode}, x || {});
+const P1 = (id, lo, hi) => PI(id, 1, lo, hi, "lourd");
+const P2 = (id, lo, hi) => PI(id + SEP + "2", 1, lo, hi, "leger");
+const PMAX = (id, mode) => PI(id, 5, 1, 30, mode || "leger", {emom:5, max:true, effort:"Le maximum de reps à chaque minute"});
+const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
+  lun:{title:"Upper 1 · haut du corps", warm:"1 série légère de tractions et de dips, 1 série légère de développé.",
+    hint:"Chaque exercice se fait en 2 séries : la 1re lourde, la 2e légère. Dans un module, enchaîne les exercices dans l'ordre affiché.",
     blocs:[
-      {title:"Dips ↔ Rowing", rest:[60,90], restTxt:"60–90 s entre les deux exercices", how:"Dips, repos, rowing bras gauche puis bras droit, repos. 3 tours, puis la 4e série de dips seule.",
-        items:[{id:"dips",sets:4,reps:[6,10],mode:"lourd",effort:"RIR 1–2"},{id:"rowing",sets:3,reps:[8,12],mode:"lourd",effort:"RIR 1–2"}]},
-      {title:"Presse ↔ Mollets", rest:[90,120], restTxt:"Au moins 2 min entre deux séries de presse", how:"Presse, repos, mollets jambe gauche puis droite, repos. 3 tours, puis la 4e série de presse seule.",
-        items:[{id:"presse",sets:4,reps:[6,10],mode:"lourd",effort:"RIR 1–2, jamais à l'échec"},{id:"mollets",sets:3,reps:[10,15],mode:"lourd",effort:"Dernière série à l'échec possible"}]},
-      {title:"Hip thrust", rest:[90], restTxt:"90 s entre les séries", optional:true, how:"Charge modérée : c'est le 3e exercice lourd de la séance. Si le temps manque, c'est lui qui saute.",
-        items:[{id:"hipthrust",sets:3,reps:[10,15],mode:"leger",effort:"RIR 2"}]}]},
-  mar:{title:"Épaules et ischios", warm:"2 séries légères de militaire.",
-    gear:["Barre pour le militaire, barre à dips pour les relevés.","Poulies à hauteur de poitrine avec les poignées, pour le module 2."],
-    hint:"Le militaire passe en premier, quand tes épaules sont fraîches.",
+      {title:"Tractions ↔ Dips", rest:[120], restTxt:"1 min 30 à 2 min entre chaque exercice", how:"Tractions lourdes (4–6), repos, dips lourds (4–6), repos. Puis tractions légères (8–10), repos, dips légers (8–10).",
+        items:[P1("tractionspro",4,6), P1("dips",4,6), P2("tractionspro",8,10), P2("dips",8,10)]},
+      {title:"Développé haltères ↔ Oiseau poulie", rest:[90], how:"Développé lourd (6–8), oiseau à 8 reps, puis développé léger (10–12), oiseau à 12 reps. Repos entre chaque exercice.",
+        items:[P1("developpe",6,8), P1("oiseaupoulie",8,8), P2("developpe",10,12), P2("oiseaupoulie",12,12)]},
+      {title:"Développé militaire ↔ Curl marteau poulie", rest:[90], how:"Militaire lourd (6–8), curl marteau à 8 reps, puis militaire léger (10–12), curl marteau à 12 reps.",
+        items:[P1("militaire",6,8), P1("curlmarteaup",8,8), P2("militaire",10,12), P2("curlmarteaup",12,12)]},
+      {title:"Élévations latérales ↔ Curl ↔ Triceps", rest:[60], how:"Les trois exercices à la suite à 8 reps, repos, puis les trois à la suite à 12 reps.",
+        items:[P1("laterales",8,8), P1("curl",8,8), P1("tricepsunil",8,8), P2("laterales",12,12), P2("curl",12,12), P2("tricepsunil",12,12)]}]},
+  mar:{title:"Lower 1 · bas du corps", warm:"2 séries légères de presse, 1 série de Nordic facile.",
+    hint:"Les EMOM de presse se lancent depuis leur carte : une série au début de chaque minute pendant 5 minutes.",
     blocs:[
-      {title:"Militaire ↔ Relevés de jambes", rest:[60,90], restTxt:"60–90 s entre les deux exercices", how:"Militaire, repos, relevés de jambes, repos. 3 tours, puis la 4e série de militaire seule.",
-        items:[{id:"militaire",sets:4,reps:[6,10],mode:"lourd",effort:"RIR 1–2"},{id:"releves",sets:3,reps:[10,15],mode:"lourd",effort:"Dernière série à l'échec possible"}]},
-      {title:"Développé poulie ↔ Curl", rest:[60], restTxt:"60 s entre les deux exercices", how:"Développé, 60 s, curl, 60 s. 3 tours.",
-        items:[{id:"devpoulie",sets:3,reps:[8,12],mode:"lourd",effort:"RIR 1–2"},{id:"curl",sets:3,reps:[10,12],mode:"lourd",effort:"Dernière série à l'échec possible"}]},
-      {title:"Leg curl assis", rest:[60], restTxt:"60 s après chaque paire de jambes", before:"Monte une poulie en haut et mets la sangle de cheville.", how:"Jambe gauche puis jambe droite, sans pause entre les deux, puis 60 s de repos.",
-        items:[{id:"legcurl",sets:4,reps:[8,12],mode:"lourd",effort:"Dernière série à l'échec possible"}]}]},
-  mer:{title:"Dips légers et fessiers", warm:"1 série de dips sans lest, 1 série légère de hip thrust.",
-    gear:["Haltère et banc pour le rowing.","Barre chargée pour le hip thrust.","Poulie en bas avec la sangle, pour le kickback."],
-    hint:"Dips légers pour ménager épaules et coudes. La vraie séance lourde du jour, c'est le hip thrust.",
+      {title:"Nordic ↔ EMOM presse pieds bas", rest:[90], how:"Nordic lourd (6–8), puis l'EMOM presse pieds bas : 10–12 reps au début de chaque minute pendant 5 minutes. Enfin, Nordic léger (10–12).",
+        items:[P1("nordic",6,8), PI("presse",5,10,12,"leger",{emom:5}), P2("nordic",10,12)]},
+      {title:"Hip thrust", rest:[120], how:"Une série lourde (6–8), 2 min de repos, puis une série légère (10–12).",
+        items:[P1("hipthrust",6,8), P2("hipthrust",10,12)]},
+      {title:"Mollets ↔ EMOM presse pieds hauts", rest:[60], how:"Mollets à 8 reps, puis l'EMOM presse pieds hauts écartés : 6–8 reps au début de chaque minute pendant 5 minutes. Enfin, mollets à 12 reps.",
+        items:[P1("mollets",8,8), PI("pressehaut",5,6,8,"lourd",{emom:5}), P2("mollets",12,12)]},
+      {title:"Kickback poulie", rest:[60], how:"Une série à 8 reps, puis une série à 12 reps, jambe gauche puis jambe droite.",
+        items:[P1("kickback",8,8), P2("kickback",12,12)]},
+      {title:"EMOM pompes ↔ Relevés de jambes", rest:[60], how:"EMOM demi-pompes 5 minutes : le maximum de reps à chaque minute. Puis relevés de jambes à 8 reps, et à 12 reps.",
+        items:[PMAX("demipompes"), P1("releves",8,8), P2("releves",12,12)]}]},
+  mer:{title:"Repos", warm:"", blocs:[]},
+  jeu:{title:"Upper 2 · haut du corps", warm:"1 série légère de tractions et de dips, 1 série légère de développé.",
+    hint:"Après la série lourde de tractions et de dips, on passe en EMOM 5 minutes : le maximum de reps à chaque minute. Essaie de battre ton total.",
     blocs:[
-      {title:"Dips légers ↔ Rowing", rest:[60], restTxt:"60 s entre les deux exercices", how:"Dips, 60 s, rowing gauche puis droit, 60 s. 3 tours.",
-        items:[{id:"dips",sets:3,reps:[10,15],mode:"leger",effort:"RIR 2, sans lest si besoin"},{id:"rowing",sets:3,reps:[10,15],mode:"leger",effort:"RIR 1–2"}]},
-      {title:"Hip thrust ↔ Mollets", rest:[60,90], restTxt:"60–90 s entre les deux exercices", how:"Hip thrust, repos, mollets gauche puis droite, repos. 3 tours, puis la 4e série de hip thrust seule.",
-        items:[{id:"hipthrust",sets:4,reps:[6,10],mode:"lourd",effort:"RIR 1–2"},{id:"mollets",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"}]},
-      {title:"Kickback", rest:[45,60], restTxt:"45–60 s après chaque paire de jambes", how:"Jambe gauche puis jambe droite, puis repos.",
-        items:[{id:"kickback",sets:3,reps:[10,15],mode:"lourd",effort:"Dernière série à l'échec possible"}]}]},
-  jeu:{title:"Épaules et presse en EMOM", warm:"1 série légère de militaire, 2 séries légères de presse.",
-    gear:["Barre pour le militaire, haltère et banc pour le rowing.","Poulie haute : la corde d'un côté pour les triceps, la sangle de cheville de l'autre pour le leg curl."],
-    hint:"La presse se fait en EMOM : une série au début de chaque minute, pendant 5 minutes. La cinquième minute doit finir à 1–2 reps de l'échec.",
+      {title:"Tractions ↔ Dips", rest:[120], restTxt:"1 min 30 à 2 min entre chaque exercice", how:"Tractions lourdes (6–8), repos, dips lourds (6–8), repos. Puis EMOM tractions 5 minutes, et EMOM dips 5 minutes : le maximum de reps à chaque minute.",
+        items:[P1("tractionspro",6,8), P1("dips",6,8), PMAX("tractionspro" + SEP + "2"), PMAX("dips" + SEP + "2")]},
+      {title:"Développé haltères ↔ Oiseau poulie", rest:[90], how:"Développé lourd (4–6), oiseau à 13 reps, puis développé léger (8–10), oiseau à 17 reps.",
+        items:[P1("developpe",4,6), P1("oiseaupoulie",13,13), P2("developpe",8,10), P2("oiseaupoulie",17,17)]},
+      {title:"Développé militaire ↔ Curl marteau poulie", rest:[90], how:"Militaire lourd (4–6), curl marteau à 13 reps, puis militaire léger (8–10), curl marteau à 17 reps.",
+        items:[P1("militaire",4,6), P1("curlmarteaup",13,13), P2("militaire",8,10), P2("curlmarteaup",17,17)]},
+      {title:"Élévations latérales ↔ Curl ↔ Triceps", rest:[60], how:"Les trois exercices à la suite à 11 reps, repos, puis les trois à la suite à 15 reps.",
+        items:[P1("laterales",11,11), P1("curl",11,11), P1("tricepsunil",11,11), P2("laterales",15,15), P2("curl",15,15), P2("tricepsunil",15,15)]}]},
+  ven:{title:"Lower 2 · bas du corps", warm:"2 séries légères de presse, 1 série de Nordic facile.",
+    hint:"Les EMOM de presse se lancent depuis leur carte : une série au début de chaque minute pendant 5 minutes.",
     blocs:[
-      {title:"Militaire léger ↔ Rowing", rest:[60], restTxt:"60 s entre les deux exercices", how:"Militaire, 60 s, rowing bras gauche puis bras droit, 60 s. 3 tours.",
-        items:[{id:"militaire",sets:3,reps:[10,12],mode:"leger",effort:"RIR 1–2"},{id:"rowing",sets:3,reps:[10,15],mode:"leger",effort:"RIR 1–2"}]},
-      {title:"EMOM presse pieds bas", emom:5, before:"Règle la charge de la presse pendant la pause.", how:"Au début de chaque minute, fais tes reps, puis repose-toi jusqu'à la minute suivante. Si tu lâches avant la 4e minute, la charge est trop lourde.",
-        items:[{id:"presse",sets:5,reps:[10,12],mode:"leger",effort:"Minute 5 à 1–2 reps de l'échec"}]},
-      {title:"Triceps corde", rest:[60], restTxt:"60 s entre les séries", how:"Pendant ce temps, tes jambes récupèrent avant le deuxième EMOM.",
-        items:[{id:"triceps",sets:3,reps:[10,15],mode:"leger",effort:"Dernière série à l'échec possible"}]},
-      {title:"EMOM presse pieds hauts écartés", emom:5, before:"Remonte les pieds sur le plateau et écarte-les.", how:"Même principe : une série au début de chaque minute pendant 5 minutes.",
-        items:[{id:"pressehaut",sets:5,reps:[10,12],mode:"leger",effort:"Minute 5 à 1–2 reps de l'échec"}]},
-      {title:"Leg curl assis", rest:[60], restTxt:"60 s après chaque paire de jambes", how:"Jambe gauche puis jambe droite, sans pause entre les deux, puis 60 s de repos.",
-        items:[{id:"legcurl",sets:4,reps:[10,15],mode:"leger",effort:"Dernière série à l'échec possible"}]}]},
-  ven:{title:"Dips et presse lourde", warm:"1 série de dips sans lest, 2 séries légères de presse.",
-    gear:["Barre à dips pour les dips et les relevés.","Haltères pour le curl.","Poulie en bas avec la sangle, pour le kickback."],
-    hint:"Dernière séance de la semaine : dips et presse en lourd, la fin est plus légère.",
-    blocs:[
-      {title:"Dips ↔ Relevés de jambes", rest:[60,90], restTxt:"60–90 s entre les deux exercices", how:"Dips, repos, relevés de jambes, repos. 3 tours.",
-        items:[{id:"dips",sets:3,reps:[6,10],mode:"lourd",effort:"RIR 1–2"},{id:"releves",sets:3,reps:[10,15],mode:"lourd",effort:"Dernière série à l'échec possible"}]},
-      {title:"Presse ↔ Curl", rest:[90,120], restTxt:"Au moins 2 min entre deux séries de presse", how:"Presse, repos, curl, repos. 3 tours, puis la 4e série de presse seule.",
-        items:[{id:"presse",sets:4,reps:[6,10],mode:"lourd",effort:"RIR 1–2, jamais à l'échec"},{id:"curl",sets:3,reps:[10,12],mode:"lourd",effort:"Dernière série à l'échec possible"}]},
-      {title:"Kickback ↔ Mollets", rest:[45,60], restTxt:"45–60 s entre les tours", how:"Kickback gauche puis droit, mollets gauche puis droit, repos. 3 tours.",
-        items:[{id:"kickback",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"},{id:"mollets",sets:3,reps:[15,20],mode:"leger",effort:"Dernière série à l'échec possible"}]}]},
-  we:{title:"Petite séance du week-end", warm:"", blocs:[]}
+      {title:"Nordic ↔ EMOM presse pieds bas", rest:[90], how:"Nordic lourd (4–6), puis l'EMOM presse pieds bas : 6–8 reps au début de chaque minute pendant 5 minutes. Enfin, Nordic léger (8–10).",
+        items:[P1("nordic",4,6), PI("presse",5,6,8,"lourd",{emom:5}), P2("nordic",8,10)]},
+      {title:"Hip thrust", rest:[120], how:"Une série lourde (8–10), 2 min de repos, puis une série légère (13–15).",
+        items:[P1("hipthrust",8,10), P2("hipthrust",13,15)]},
+      {title:"Mollets ↔ EMOM presse pieds hauts", rest:[60], how:"Mollets à 13 reps, puis l'EMOM presse pieds hauts écartés : 10–12 reps au début de chaque minute pendant 5 minutes. Enfin, mollets à 17 reps.",
+        items:[P1("mollets",13,13), PI("pressehaut",5,10,12,"leger",{emom:5}), P2("mollets",17,17)]},
+      {title:"Kickback poulie", rest:[60], how:"Une série à 13 reps, puis une série à 17 reps, jambe gauche puis jambe droite.",
+        items:[P1("kickback",13,13), P2("kickback",17,17)]},
+      {title:"EMOM pompes ↔ Relevés de jambes", rest:[60], how:"EMOM demi-pompes 5 minutes : le maximum de reps à chaque minute. Puis relevés de jambes à 13 reps, et à 17 reps.",
+        items:[PMAX("demipompes"), P1("releves",13,13), P2("releves",17,17)]}]},
+  we:{title:"Repos", warm:"", blocs:[]}
 }};
 
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
@@ -575,33 +583,57 @@ function prepProgram(p){
   DAY_KEYS.forEach(k => { p.days[k].blocs.forEach(b => { if(!b.id) b.id = uid(); b.items = (b.items || []).filter(it => it && it.id); }); });
   return p;
 }
+const LS_OLD = "repere-musculation-programme-de-cote";
+const LS_UL = "repere-programme-upper-lower";
 function loadProgram(){
   let p = null;
   try{ const raw = localStorage.getItem(LS_PROG); if(raw) p = JSON.parse(raw); }catch(e){ p = null; }
+  try{
+    if(!localStorage.getItem(LS_UL)){
+      // Une seule fois : l'ancien programme est mis de côté, le programme Upper / Lower le remplace
+      if(validProgram(p)) localStorage.setItem(LS_OLD, JSON.stringify(p));
+      const np = clone(DEFAULT_PROGRAM); if(p && p.custom) np.custom = p.custom;
+      p = np; localStorage.setItem(LS_PROG, JSON.stringify(p)); localStorage.setItem(LS_UL, "1");
+    }
+  }catch(e){}
   program = prepProgram(validProgram(p) ? p : clone(DEFAULT_PROGRAM));
 }
+function sideProgram(){ try{ const raw = localStorage.getItem(LS_OLD); const p = raw ? JSON.parse(raw) : null; return validProgram(p) ? p : null; }catch(e){ return null; } }
 function saveProgram(){
   try{ localStorage.setItem(LS_PROG, JSON.stringify(program)); }catch(e){}
   stale.progres = true;
 }
-function exo(id){ return LIB[id] || (program && program.custom[id]) || {id, name:id, m:{}, unit:"kg", inc:2.5, cue:""}; }
+function exo(id){ const b = baseId(id); return LIB[b] || (program && program.custom[b]) || {id:b, name:b, m:{}, unit:"kg", inc:2.5, cue:""}; }
+const rngTxt = it => it.max ? "max" : (it.reps[0] === it.reps[1] ? String(it.reps[0]) : it.reps[0] + "–" + it.reps[1]);
+function itemTitle(it, b){
+  const n = exo(it.id).name;
+  const twins = b ? b.items.filter(x => baseId(x.id) === baseId(it.id)).length : 1;
+  if(twins < 2) return n;
+  const k = phaseNo(it.id);
+  return n + " · " + (k === 1 ? "1re" : k + "e") + " série";
+}
+function itemOfAny(id){ for(const k of DAY_KEYS){ for(const b of day(k).blocs){ const it = b.items.find(x => x.id === id); if(it) return {it, b}; } } return null; }
 function exoName(id){ return exo(id).name; }
 function sideTxt(id){ return exo(id).side ? " par " + exo(id).side : ""; }
 const day = k => program.days[k];
 const planItems = k => day(k).blocs.flatMap(b => b.items);
 const planTotal = k => planItems(k).reduce((s,it) => s + it.sets, 0);
-const activeIds = () => { const out = []; DAY_KEYS.forEach(k => planItems(k).forEach(it => { if(out.indexOf(it.id) < 0) out.push(it.id); })); return out; };
+const activeIds = () => { const out = []; DAY_KEYS.forEach(k => planItems(k).forEach(it => { const b = baseId(it.id); if(out.indexOf(b) < 0) out.push(b); })); return out; };
 function blockSec(b){
   if(b.emom) return b.emom * 60 + 60;
   const r = blockRest(b), rest = r.reduce((s,x) => s + x, 0) / r.length;
-  return b.items.reduce((s,it) => s + it.sets * ((exo(it.id).side ? 90 : 45) + rest), 0) + 60;
+  return b.items.reduce((s,it) => s + (it.emom ? it.emom * 60 + 30 : it.sets * ((exo(it.id).side ? 90 : 45) + rest)), 0) + 60;
 }
 function estMin(k){
   const bl = day(k).blocs; if(!bl.length) return 0;
   const sec = 5*60 + bl.reduce((s,b) => s + blockSec(b), 0) + (bl.length - 1) * 120;
   return Math.max(5, Math.round(sec / 60));
 }
-function blockTitle(b){ return (b.title && !b.edited) ? b.title : (b.emom ? "EMOM " : "") + (b.items.length ? b.items.map(it => exoName(it.id)).join(" ↔ ") : "Module vide"); }
+function blockTitle(b){
+  if(b.title && !b.edited) return b.title;
+  const names = []; b.items.forEach(it => { const n = (it.emom && !b.emom ? "EMOM " : "") + exoName(it.id); if(names.indexOf(n) < 0 && names.indexOf(exoName(it.id)) < 0) names.push(n); });
+  return (b.emom ? "EMOM " : "") + (names.length ? names.join(" ↔ ") : "Module vide");
+}
 function blockRest(b){ return (b.rest && b.rest.length) ? b.rest : [90]; }
 function blockRestTxt(b){
   if(b.emom) return "le reste de chaque minute";
@@ -611,7 +643,10 @@ function blockRestTxt(b){
 function blockHow(b){
   if(b.how && !b.edited) return b.how;
   if(b.emom) return "Au début de chaque minute, fais tes reps, puis repose-toi jusqu'à la minute suivante, pendant " + b.emom + " minutes" + (b.items.length > 1 ? ", en alternant les exercices" : "") + ".";
+  const phased = b.items.some(it => it.emom || phaseNo(it.id) > 1 || it.max);
+  if(b.items.length > 1 && phased) return "Dans l'ordre : " + b.items.map(it => itemTitle(it, b).toLowerCase() + (it.emom ? " (EMOM " + it.emom + " min" + (it.max ? ", max de reps" : "") + ")" : " (" + rngTxt(it) + " reps)")).join(", puis ") + ". Repos entre chaque exercice.";
   if(b.items.length > 1){ const n = Math.max(...b.items.map(it => it.sets)); return "Enchaîne " + b.items.map(it => exoName(it.id).toLowerCase()).join(", puis ") + ", avec un repos entre chaque exercice. " + n + " tours."; }
+  if(b.items.length === 1 && b.items[0].emom) return "EMOM " + b.items[0].emom + " minutes : au début de chaque minute, fais tes reps, puis repose-toi jusqu'à la minute suivante.";
   if(b.items.length === 1) return b.items[0].sets + " séries, avec un repos entre chaque série.";
   return "Ajoute un exercice à ce module dans l'onglet Programme.";
 }
@@ -659,26 +694,34 @@ function donePlan(s){ return planItems(s.day).reduce((n,it) => n + Math.min(it.s
 function doneAll(s){ return Object.keys(s.exos).reduce((n,id) => n + doneIn(s,id).length, 0); }
 function tonnage(s){ let t = 0; Object.keys(s.exos).forEach(id => doneIn(s,id).forEach(x => { if(x.kg) t += x.kg * x.reps * (exo(id).side ? 2 : 1); })); return t; }
 function sortedSessions(dir){ const arr = [...sessions.values()].map(normalize); arr.sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); return dir === "desc" ? arr.reverse() : arr; }
-function lastFor(id, date, mode){
+function setsOfBase(s, base, mode){ const out = []; Object.keys(s.exos).forEach(k => { if(baseId(k) === base && s.modes[k] === mode) doneIn(s, k).forEach(x => out.push(x)); }); return out; }
+function lastFor(id, date, mode, maxOnly){
+  const base = baseId(id);
   for(const s of sortedSessions("desc")){
-    if(s.date >= date || s.modes[id] !== mode) continue;
-    const sets = doneIn(s, id);
+    if(s.date >= date) continue;
+    // Pour un EMOM « max de reps », on compare au même EMOM ; sinon on prend toutes les séries de l'exercice dans ce mode
+    const sets = maxOnly ? (s.modes[id] === mode ? doneIn(s, id) : []) : setsOfBase(s, base, mode);
     if(sets.length) return {date:s.date, sets};
   }
   return null;
 }
 function suggestion(it, last){
-  const e = exo(it.id), lo = it.reps[0], hi = it.reps[1], u = e.unit;
-  if(!last) return {kind:"new", kg:null, text:"Première fois en " + MODE_LABEL[it.mode].toLowerCase() + " : choisis une charge qui te donne " + lo + "–" + hi + " reps, en finissant à 1–2 reps de l'échec."};
-  const sets = last.sets;
+  const e = exo(it.id), lo = it.reps[0], hi = it.reps[1], u = e.unit, rt = rngTxt(it);
+  if(it.max){
+    if(!last) return {kind:"new", kg:null, text:"Première fois : fais le maximum de reps à chaque minute et note-les. La prochaine fois, l'objectif sera de battre ce total."};
+    const tot = last.sets.reduce((s,x) => s + x.reps, 0), kgm = Math.max(...last.sets.map(s => s.kg || 0));
+    return {kind:"same", kg: kgm, text:"La dernière fois : " + tot + " reps au total. Essaie de faire au moins " + (tot + 1) + "."};
+  }
+  if(!last) return {kind:"new", kg:null, text:"Première fois en " + MODE_LABEL[it.mode].toLowerCase() + " : choisis une charge qui te donne " + rt + " reps, en finissant à 1–2 reps de l'échec."};
+  const sets = last.sets.slice(-Math.max(it.sets, 1));
   const topKg = Math.max(...sets.map(s => s.kg || 0));
   const full = sets.length >= it.sets && sets.every(s => s.reps >= hi);
   if(full){
     const next = round1(roundStep(topKg + e.inc, e.inc >= 2.5 ? 2.5 : 1));
-    return {kind:"up", kg: next, text:"Toutes tes séries ont atteint " + hi + " reps. Monte à " + fmt(next) + " " + u + " et repars du bas de la fourchette."};
+    return {kind:"up", kg: next, text:(sets.length > 1 ? "Toutes tes séries ont atteint " : "Tu as atteint ") + hi + " reps. Monte à " + fmt(next) + " " + u + (lo < hi ? " et repars du bas de la fourchette." : ".")};
   }
   const keep = topKg > 0 ? "Garde " + fmt(topKg) + " " + u : (e.zero ? "Garde le poids du corps" : "Garde la même charge");
-  if(sets[0].reps < lo) return {kind:"warn", kg: topKg, text: keep + " et vise au moins " + lo + " reps à chaque série avant de monter."};
+  if(sets[0].reps < lo) return {kind:"warn", kg: topKg, text: keep + " et vise " + (lo < hi ? "au moins " + lo : lo) + " reps avant de monter."};
   return {kind:"same", kg: topKg, text: keep + " et ajoute 1 rep quelque part par rapport à la dernière fois."};
 }
 
@@ -736,14 +779,15 @@ function emomBtn(min){ return '<button type="button" class="chip-btn emom-btn" d
 function itemOf(id){ return planItems(current.day).find(it => it.id === id); }
 function stateOf(id, i){
   const s = current.exos[id][i]; const it = itemOf(id); const r = it ? it.reps : [0,0];
-  if(!isDone(s)) return {cls:"", txt: r[0]+"–"+r[1]};
+  if(it && it.max) return isDone(s) ? {cls:"in", txt:"✓ "+s.reps} : {cls:"", txt:"max"};
+  if(!isDone(s)) return {cls:"", txt: it ? rngTxt(it) : r[0]+"–"+r[1]};
   if(s.reps < r[0]) return {cls:"under", txt:"sous"};
   if(s.reps > r[1]) return {cls:"over", txt:"+ charge"};
   return {cls:"in", txt:"✓ "+s.reps};
 }
 function exoHTML(it, b){
-  const id = it.id, e = exo(id), r = it.reps, mode = it.mode, em = b && b.emom;
-  const last = lastFor(id, current.date, mode);
+  const id = it.id, e = exo(id), r = it.reps, mode = it.mode, em = (b && b.emom) || it.emom, rt = rngTxt(it);
+  const last = lastFor(id, current.date, mode, !!it.max);
   const sg = suggestion(it, last);
   const arr = current.exos[id];
   const doneN = Math.min(it.sets, arr.filter(isDone).length);
@@ -759,13 +803,14 @@ function exoHTML(it, b){
     const st = stateOf(id, i);
     rows += '<span class="sn">'+(em ? "M" : "S")+(i+1)+'</span>'
       + '<input type="text" inputmode="decimal" autocomplete="off" id="kg-'+id+'-'+i+'" data-exo="'+id+'" data-i="'+i+'" data-f="kg" value="'+(s.kg != null ? fmtIn(s.kg) : "")+'" placeholder="'+ph+'" aria-label="'+esc(e.name)+', série '+(i+1)+', charge">'
-      + '<input type="text" inputmode="numeric" autocomplete="off" id="rp-'+id+'-'+i+'" data-exo="'+id+'" data-i="'+i+'" data-f="reps" value="'+(s.reps != null ? s.reps : "")+'" placeholder="'+r[0]+'–'+r[1]+'" aria-label="'+esc(e.name)+', série '+(i+1)+', répétitions">'
+      + '<input type="text" inputmode="numeric" autocomplete="off" id="rp-'+id+'-'+i+'" data-exo="'+id+'" data-i="'+i+'" data-f="reps" value="'+(s.reps != null ? s.reps : "")+'" placeholder="'+rt+'" aria-label="'+esc(e.name)+', série '+(i+1)+', répétitions">'
       + '<span class="st '+st.cls+'" id="st-'+id+'-'+i+'">'+st.txt+'</span>';
   });
   return '<article class="exo" id="ex-'+id+'">'
-    + '<div class="exo-h"><div><h3>'+esc(e.name)+'</h3><div class="exo-tags"><span class="plate sm '+mode+'">'+MODE_LABEL[mode]+'</span><span class="exo-meta">'+(em ? '<b>EMOM '+em+' min</b> · <b>'+r[0]+'–'+r[1]+' reps par minute</b>' : '<b>'+it.sets+' séries'+sideTxt(id)+'</b> · <b>'+r[0]+'–'+r[1]+' reps</b>')+' · '+esc(effortOf(it))+'</span></div></div>'
+    + '<div class="exo-h"><div><h3>'+esc(itemTitle(it, b))+'</h3><div class="exo-tags"><span class="plate sm '+mode+'">'+MODE_LABEL[mode]+'</span><span class="exo-meta">'+(em ? '<b>EMOM '+em+' min</b> · <b>'+(it.max ? 'max de reps' : rt+' reps')+' par minute</b>' : '<b>'+it.sets+' série'+(it.sets>1?'s':'')+sideTxt(id)+'</b> · <b>'+rt+' reps</b>')+' · '+esc(effortOf(it))+'</span></div></div>'
     + '<span class="count num'+(doneN>=it.sets?" full":"")+'" id="cnt-'+id+'">'+doneN+'/'+it.sets+'</span></div>'
     + (e.cue ? '<p class="cue">'+esc(e.cue)+'</p>' : '')
+    + (it.emom && !(b && b.emom) ? '<div class="rest-row">'+emomBtn(it.emom)+'</div>' : '')
     + '<p class="last">'+lastTxt+'</p>'
     + '<div class="sugg '+(sg.kind==="up"?"up":sg.kind==="warn"?"warn":"")+'"><span><span class="tag">'+tag+'</span>'+sg.text+'</span>'+fillBtn+'</div>'
     + '<div class="sets">'+rows+'</div>'
@@ -778,9 +823,9 @@ function renderSeance(){
   const d = dateOf(current.date);
   const total = planTotal(current.day), done = donePlan(current);
   let hint = D.edited ? "" : D.hint;
-  if(planned === "we" && current.day === "we"){
-    if(!D.blocs.length) hint = "<b>Week-end : repos prévu.</b> Pour faire une petite séance le week-end, ajoute-lui des modules dans l'onglet Programme (jour W-E).";
-    else if(weekendDoneSaturday(current.date)) hint = "<b>Séance du week-end déjà faite samedi : repos aujourd'hui.</b>";
+  if(planned === current.day && !D.blocs.length) hint = "<b>Repos prévu aujourd'hui.</b> Si tu veux t'entraîner quand même, choisis une séance ci-dessus.";
+  else if(planned === "we" && current.day === "we"){
+    if(weekendDoneSaturday(current.date)) hint = "<b>Séance du week-end déjà faite samedi : repos aujourd'hui.</b>";
   }
   else if(planned !== current.day) hint = "<b>Séance du " + M.label.toLowerCase() + " faite " + (planned === "we" ? "le week-end" : "un " + DAY_META[planned].label.toLowerCase()) + ".</b> " + hint;
   if(current.finishedAt && !reviewFinished){ v.innerHTML = browserNotice() + finishedHTML(); return; }
@@ -796,7 +841,7 @@ function renderSeance(){
     + '</div>';
   const gear = D.edited ? [] : (D.gear || []);
   if(D.warm || gear.length) html += '<div class="setup"><h2>Avant de commencer</h2><ul>'+(D.warm ? '<li><b>Échauffement 5 min :</b> '+esc(D.warm)+'</li>' : '')+gear.map(g => '<li>'+esc(g)+'</li>').join("")+'</ul></div>';
-  if(!D.blocs.length) html += '<div class="empty-big"><strong>Séance vide</strong><span>Ajoute des modules dans l\'onglet Programme.</span></div>';
+  if(!D.blocs.length) html += '<div class="empty-big"><strong>Pas de séance prévue</strong><span>Jour de repos. Pour en faire un jour d\'entraînement, ajoute des modules dans l\'onglet Programme.</span></div>';
   D.blocs.forEach((b, bi) => {
     if(bi > 0) html += '<div class="transition"><span><b>2 min de pause</b> avant le module '+(bi+1)+'.'+(b.before && !b.edited ? " "+esc(b.before) : "")+'</span>'+restBtn(120, "Pause entre modules")+'</div>';
     html += '<section class="bloc" aria-label="Module '+(bi+1)+'"><div class="bloc-h"><span class="bloc-n">Module '+(bi+1)+(b.optional && !b.edited ?" · si le temps le permet":"")+'</span><h2>'+esc(blockTitle(b))+'</h2></div>'
@@ -827,9 +872,13 @@ function browserNotice(){
     + '<span><b>Ferme cette page et ouvre l\'icône Repère.</b> Si elle n\'est pas encore installée : Partager, puis « Sur l\'écran d\'accueil ».</span></div>';
 }
 function nextSession(iso){
-  const d = dateOf(iso), weOn = day("we").blocs.length > 0;
-  for(let k = 1; k <= 7; k++){ const n = new Date(d.getFullYear(), d.getMonth(), d.getDate()+k); const g = n.getDay(); if(g >= 1 && g <= 5) return {date:n, day:DAY_KEYS[g-1]}; if(g === 6 && weOn) return {date:n, day:"we"}; }
-  return {date:d, day:"lun"};
+  const d = dateOf(iso);
+  for(let k = 1; k <= 14; k++){
+    const n = new Date(d.getFullYear(), d.getMonth(), d.getDate()+k); const g = n.getDay();
+    const key = g >= 1 && g <= 5 ? DAY_KEYS[g-1] : (g === 6 ? "we" : null);
+    if(key && day(key).blocs.length) return {date:n, day:key};
+  }
+  return {date:new Date(d.getFullYear(), d.getMonth(), d.getDate()+1), day:"lun"};
 }
 function finishedHTML(){
   const D = day(current.day), M = DAY_META[current.day], isToday = current.date === todayIso();
@@ -942,13 +991,14 @@ function nudge(d){ if(!tInt || emom) return; tEnd += d*1000; tDur = Math.max(1, 
 
 /* ===================== Progrès ===================== */
 function seriesFor(id, mode){
-  const arr = sortedSessions("asc").filter(s => s.modes[id] === mode && doneIn(s,id).length);
-  const all = []; arr.forEach(s => doneIn(s,id).forEach(x => all.push(x)));
+  const base = baseId(id);
+  const arr = sortedSessions("asc").filter(s => setsOfBase(s, base, mode).length);
+  const all = []; arr.forEach(s => setsOfBase(s, base, mode).forEach(x => all.push(x)));
   const kgMode = all.some(x => x.kg > 0) ? "kg" : "reps";
   const pts = [];
   arr.forEach(s => {
     let best = null, bv = -1;
-    doneIn(s,id).forEach(x => { const val = kgMode === "kg" ? (x.kg > 0 ? x.kg*(1 + x.reps/30) : -1) : x.reps; if(val > bv){ bv = val; best = x; } });
+    setsOfBase(s, base, mode).forEach(x => { const val = kgMode === "kg" ? (x.kg > 0 ? x.kg*(1 + x.reps/30) : -1) : x.reps; if(val > bv){ bv = val; best = x; } });
     if(bv < 0) return;
     pts.push({t: dateOf(s.date).getTime(), v: round1(bv), date: s.date, type: mode, set: best});
   });
@@ -1034,7 +1084,7 @@ function renderProgres(){
   let html = '<div class="section-h"><h1>Progrès</h1><p class="lede">Chaque point est ta <b>meilleure série</b> de la séance, convertie en force estimée : charge × (1 + reps ÷ 30). La courbe monte quand tu ajoutes des reps ou de la charge. Les séries lourdes (rouge) et légères (bleu) sont suivies séparément.</p></div>';
   const now = new Date(); const dow = (now.getDay()+6)%7; const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate()-dow);
   let doneW = 0, cells = "";
-  const weOn = day("we").blocs.length > 0;
+  const nPlanned = DAY_KEYS.filter(k => day(k).blocs.length).length;
   const hasSets = iso => { const s = sessions.get(iso); return !!s && doneAll(normalize(clone(s))) > 0; };
   for(let k = 0; k < 6; k++){
     const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+k); const iso = isoOf(d);
@@ -1045,11 +1095,11 @@ function renderProgres(){
     cells += '<div class="wd'+(isToday?" today":"")+'"><div class="disc'+(ok?" done":"")+'" aria-label="'+lbl+(ok?" : séance faite":" : pas encore faite")+'">'+(ok?"✓":DAY_META[DAY_KEYS[k]].letter)+'</div><span>'+DAY_META[DAY_KEYS[k]].short+'</span></div>';
   }
   const all = sortedSessions("asc").filter(s => doneAll(s) > 0);
-  html += '<div class="week"><div class="week-days">'+cells+'</div><p><b>'+doneW+' séance'+(doneW>1?"s":"")+' sur '+(weOn ? 6 : 5)+'</b> cette semaine'+(all.length ? ' · <b>'+all.length+'</b> au total depuis le '+fDM.format(dateOf(all[0].date)).replace(/\.$/, "") : '')+'.</p></div>';
+  html += '<div class="week"><div class="week-days">'+cells+'</div><p><b>'+doneW+' séance'+(doneW>1?"s":"")+' sur '+nPlanned+'</b> cette semaine'+(all.length ? ' · <b>'+all.length+'</b> au total depuis le '+fDM.format(dateOf(all[0].date)).replace(/\.$/, "") : '')+'.</p></div>';
   if(!all.length){ v.innerHTML = html + '<div class="empty-big"><strong>Pas encore de données</strong><span>Remplis ta première séance dans l\'onglet Séance. Chaque exercice aura sa courbe ici, en lourd et en léger.</span></div>'; return; }
   let ups = 0, flats = 0;
   const act = activeIds();
-  const ids = act.concat(Object.keys(Object.assign({}, LIB, program.custom)).filter(id => act.indexOf(id) < 0 && all.some(s => doneIn(s,id).length)));
+  const ids = act.concat(Object.keys(Object.assign({}, LIB, program.custom)).filter(id => act.indexOf(id) < 0 && all.some(s => Object.keys(s.exos).some(k => baseId(k) === id && doneIn(s,k).length))));
   const cards = ids.map(id => {
     const Lo = seriesFor(id, "lourd"), Le = seriesFor(id, "leger");
     const has = Lo.pts.length + Le.pts.length;
@@ -1164,7 +1214,7 @@ function askConfirm(key){ edConfirm = key; clearTimeout(edConfirmTimer); edConfi
 function weeklyVolume(){
   const d = {}, i = {}; MUSCLES.forEach(m => { d[m] = 0; i[m] = 0; });
   DAY_KEYS.forEach(k => day(k).blocs.forEach(b => b.items.forEach(it => {
-    const w = b.emom ? 0.6 : 1, e = exo(it.id), m = e.m || {}, s = e.s || {};
+    const w = (b.emom || it.emom) ? 0.6 : 1, e = exo(it.id), m = e.m || {}, s = e.s || {};
     Object.keys(m).forEach(mu => { if(d[mu] != null) d[mu] += it.sets * w * m[mu]; });
     Object.keys(s).forEach(mu => { if(i[mu] != null) i[mu] += it.sets * w * s[mu] * 0.5; });
   })));
@@ -1173,15 +1223,27 @@ function weeklyVolume(){
 function itemHTML(b, bi, it, ii){
   const e = exo(it.id), n = b.items.length;
   return '<div class="ed-item">'
-    + '<div class="ed-item-h"><button type="button" class="nm" data-act="i-swap" data-bi="'+bi+'" data-ii="'+ii+'"><span>'+esc(e.name)+'</span><small>Changer d\'exercice</small></button>'
+    + '<div class="ed-item-h"><button type="button" class="nm" data-act="i-swap" data-bi="'+bi+'" data-ii="'+ii+'"><span>'+esc(itemTitle(it, b))+'</span><small>Changer d\'exercice</small></button>'
     + '<button type="button" class="icon-btn" data-act="i-up" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Monter l\'exercice"'+(ii===0?" disabled":"")+'>↑</button>'
     + '<button type="button" class="icon-btn" data-act="i-down" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Descendre l\'exercice"'+(ii===n-1?" disabled":"")+'>↓</button>'
     + '<button type="button" class="icon-btn del" data-act="i-del" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Retirer l\'exercice">×</button></div>'
-    + '<div class="ed-row"><span class="lbl">'+(b.emom ? "Minutes" : "Séries")+'</span><span class="stepper"><button type="button" data-act="i-sets" data-d="-1" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Une série de moins">−</button><span class="num">'+it.sets+'</span><button type="button" data-act="i-sets" data-d="1" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Une série de plus">+</button></span>'
+    + '<div class="ed-row"><span class="lbl">'+(b.emom || it.emom ? "Minutes" : "Séries")+'</span><span class="stepper"><button type="button" data-act="i-sets" data-d="-1" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Une série de moins">−</button><span class="num">'+it.sets+'</span><button type="button" data-act="i-sets" data-d="1" data-bi="'+bi+'" data-ii="'+ii+'" aria-label="Une série de plus">+</button></span>'
     + (e.side ? '<span class="side-note">par '+e.side+'</span>' : '') + '</div>'
-    + '<div class="ed-row"><span class="lbl">Reps</span><span class="reps-in"><input type="text" inputmode="numeric" data-ed="lo" data-bi="'+bi+'" data-ii="'+ii+'" value="'+it.reps[0]+'" aria-label="Reps minimum">–<input type="text" inputmode="numeric" data-ed="hi" data-bi="'+bi+'" data-ii="'+ii+'" value="'+it.reps[1]+'" aria-label="Reps maximum"></span>'
+    + '<div class="ed-row"><span class="lbl">Reps</span>'+(it.max ? '<span class="reps-max">max</span>' : '<span class="reps-in"><input type="text" inputmode="numeric" data-ed="lo" data-bi="'+bi+'" data-ii="'+ii+'" value="'+it.reps[0]+'" aria-label="Reps minimum">–<input type="text" inputmode="numeric" data-ed="hi" data-bi="'+bi+'" data-ii="'+ii+'" value="'+it.reps[1]+'" aria-label="Reps maximum"></span>')
     + '<span class="seg2" role="group" aria-label="Type"><button type="button" class="lourd" data-act="i-mode" data-mode="lourd" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(it.mode==="lourd")+'">Lourd</button><button type="button" class="leger" data-act="i-mode" data-mode="leger" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(it.mode==="leger")+'">Léger</button></span></div>'
+    + '<div class="ed-row"><span class="lbl">Options</span><span class="chips">'
+    + (b.emom ? '' : '<button type="button" data-act="i-emom" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(!!it.emom)+'">EMOM</button>')
+    + '<button type="button" data-act="i-max" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(!!it.max)+'">Reps max</button>'
+    + (n < 8 ? '<button type="button" data-act="i-phase" data-bi="'+bi+'" data-ii="'+ii+'">+ Autre série</button>' : '')
+    + '</span></div>'
     + '</div>';
+}
+function distinctBases(b){ const s = []; b.items.forEach(it => { const x = baseId(it.id); if(s.indexOf(x) < 0) s.push(x); }); return s.length; }
+function freeId(base, ignore){
+  const used = planItems(edDay).map(it => it.id).filter(x => x !== ignore);
+  if(used.indexOf(base) < 0) return base;
+  let n = 2; while(used.indexOf(base + SEP + n) >= 0) n++;
+  return base + SEP + n;
 }
 function blocHTML(b, bi, nb){
   const sets = b.items.reduce((s,it) => s + it.sets, 0);
@@ -1195,7 +1257,7 @@ function blocHTML(b, bi, nb){
     + (b.emom ? '<span class="stepper"><button type="button" data-act="b-emin" data-d="-1" data-bi="'+bi+'" aria-label="Une minute de moins">−</button><span class="num">'+b.emom+' min</span><button type="button" data-act="b-emin" data-d="1" data-bi="'+bi+'" aria-label="Une minute de plus">+</button></span>' : '') + '</div>'
     + (b.emom ? '' : '<div class="ed-row"><span class="lbl">Repos</span><span class="chips">'+REST_CHOICES.map(s => '<button type="button" data-act="b-rest" data-sec="'+s+'" data-bi="'+bi+'" aria-pressed="'+(blockRest(b)[0]===s)+'">'+(s>=120?(s/60)+" min":s+" s")+'</button>').join("")+'</span></div>')
     + b.items.map((it, ii) => itemHTML(b, bi, it, ii)).join("")
-    + '<div class="ed-actions">'+(b.items.length < 3 ? '<button type="button" class="btn-add" data-act="i-add" data-bi="'+bi+'">+ Ajouter un exercice à ce module</button>' : '<p class="side-note">3 exercices maximum par module.</p>')
+    + '<div class="ed-actions">'+(distinctBases(b) < 3 ? '<button type="button" class="btn-add" data-act="i-add" data-bi="'+bi+'">+ Ajouter un exercice à ce module</button>' : '<p class="side-note">3 exercices maximum par module.</p>')
     + (edMove === b.id
       ? '<div class="move-row"><span class="lbl">Déplacer vers</span><span class="chips">'+DAY_KEYS.filter(k => k !== edDay).map(k => '<button type="button" data-act="b-moveto" data-day="'+k+'" data-bi="'+bi+'">'+DAY_META[k].short+'</button>').join("")+'<button type="button" data-act="b-move" data-bi="'+bi+'">Annuler</button></span></div>'
       : '<button type="button" class="btn-ghost" data-act="b-move" data-bi="'+bi+'">Déplacer vers un autre jour</button>')
@@ -1224,7 +1286,7 @@ function renderProgramme(){
     + '<li><b>Série dure :</b> finie à 1–2 reps de l\'échec. L\'échauffement ne compte pas.</li>'
     + '<li><b>Module :</b> 1 à 3 exercices enchaînés. Associe des muscles différents : le léger se fait pendant le repos du lourd.</li>'
     + '<li><b>Lourd / léger :</b> en lourd, peu de reps et charge haute ; en léger, plus de reps. Près de l\'échec, les deux font grossir autant. L\'app suit les deux séparément.</li>'
-    + '<li><b>Deux exercices lourds au maximum par séance</b>, jamais dans le même module.</li>'
+    + '<li><b>Deux séries par exercice :</b> la 1re lourde, la 2e légère. « + Autre série » en ajoute une avec sa propre fourchette.</li>'
     + '<li><b>Double progression :</b> ajoute des reps jusqu\'au haut de la fourchette, puis de la charge. L\'app te le propose à chaque exercice.</li>'
     + '<li><b>Protéines :</b> environ 1,6 g par kg de poids de corps et par jour.</li></ul></details>'
     + '<details class="more"><summary>Sources</summary><ul class="rules">'
@@ -1234,7 +1296,8 @@ function renderProgramme(){
     + '<li><a href="https://eprints.leedsbeckett.ac.uk/id/eprint/11908" target="_blank" rel="noopener">Zhang et al. 2025, supersets</a></li>'
     + '<li><a href="https://www.strongerbyscience.com/?p=62454" target="_blank" rel="noopener">Leg curl assis vs Nordic curl</a></li>'
     + '<li><a href="https://bjsm.bmj.com/content/52/6/376" target="_blank" rel="noopener">Morton et al. 2018, protéines</a></li></ul></details>'
-    + '<button type="button" class="btn-danger'+(edConfirm===resetKey?" confirm":"")+'" data-act="prog-reset">'+(edConfirm===resetKey?"Confirmer : revenir au programme de départ":"Revenir au programme de départ")+'</button>';
+    + (sideProgram() ? '<div class="side-prog"><strong>Programme mis de côté</strong><span>Ton programme précédent est gardé sur ce téléphone, avec toutes tes modifications. Tu peux échanger les deux à tout moment.</span><button type="button" class="btn-ghost'+(edConfirm==="side"?" confirm":"")+'" data-act="prog-side">'+(edConfirm==="side"?"Confirmer l\'échange":"Reprendre le programme mis de côté")+'</button></div>' : '')
+    + '<button type="button" class="btn-danger'+(edConfirm===resetKey?" confirm":"")+'" data-act="prog-reset">'+(edConfirm===resetKey?"Confirmer : revenir au programme Upper / Lower de départ":"Revenir au programme Upper / Lower de départ")+'</button>';
 }
 function progChanged(b){
   markEdited(edDay, b); saveProgram();
@@ -1286,7 +1349,10 @@ function onEditorClick(a){
   if(act === "b-emom" && b){ const on = a.dataset.on === "1"; if(on && !b.emom){ b.emom = 5; b.items.forEach(it => { it.sets = b.items.length === 1 ? 5 : Math.ceil(5 / b.items.length); }); } else if(!on && b.emom){ delete b.emom; b.items.forEach(it => { it.sets = Math.min(it.sets, 4); }); } progChanged(b); return true; }
   if(act === "b-emin" && b && b.emom){ b.emom = Math.max(1, Math.min(30, b.emom + (+a.dataset.d))); if(b.items.length === 1) b.items[0].sets = b.emom; progChanged(b); return true; }
   if(act === "b-rest" && b){ b.rest = [+a.dataset.sec]; progChanged(b); return true; }
-  if(act === "i-sets" && b && b.items[ii]){ const it = b.items[ii]; it.sets = Math.max(1, Math.min(b.emom ? 30 : 10, it.sets + (+a.dataset.d))); if(b.emom && b.items.length === 1) b.emom = it.sets; progChanged(b); return true; }
+  if(act === "i-sets" && b && b.items[ii]){ const it = b.items[ii]; it.sets = Math.max(1, Math.min(b.emom || it.emom ? 30 : 10, it.sets + (+a.dataset.d))); if(it.emom) it.emom = it.sets; if(b.emom && b.items.length === 1) b.emom = it.sets; progChanged(b); return true; }
+  if(act === "i-emom" && b && b.items[ii]){ const it = b.items[ii]; if(it.emom){ delete it.emom; it.sets = Math.min(it.sets, 4); } else { it.emom = 5; it.sets = 5; } progChanged(b); return true; }
+  if(act === "i-max" && b && b.items[ii]){ const it = b.items[ii]; if(it.max){ delete it.max; if(it.reps[1] > 20) it.reps = [8,12]; } else it.max = true; delete it.effort; progChanged(b); return true; }
+  if(act === "i-phase" && b && b.items[ii]){ const it = b.items[ii]; const base = baseId(it.id), nid = freeId(base); let pos = ii; b.items.forEach((x, k) => { if(baseId(x.id) === base) pos = k; }); b.items.splice(pos+1, 0, {id:nid, sets:1, reps:it.reps.slice(), mode:"leger"}); progChanged(b); return true; }
   if(act === "i-mode" && b && b.items[ii]){ b.items[ii].mode = a.dataset.mode; delete b.items[ii].effort; progChanged(b); return true; }
   if(act === "i-up" && b && ii > 0){ b.items.splice(ii-1, 0, b.items.splice(ii, 1)[0]); progChanged(b); return true; }
   if(act === "i-down" && b && ii < b.items.length-1){ b.items.splice(ii+1, 0, b.items.splice(ii, 1)[0]); progChanged(b); return true; }
@@ -1294,6 +1360,16 @@ function onEditorClick(a){
   if(act === "i-add" && b){ openPicker({mode:"add", bi}); return true; }
   if(act === "i-swap" && b){ openPicker({mode:"swap", bi, ii}); return true; }
   if(act === "b-new"){ openPicker({mode:"new"}); return true; }
+  if(act === "prog-side"){
+    if(edConfirm === "side"){
+      edConfirm = null; const other = sideProgram(); if(!other) return true;
+      try{ localStorage.setItem(LS_OLD, JSON.stringify(program)); }catch(e){}
+      program = prepProgram(other); saveProgram(); if(current) applyPlan(current);
+      edNotice = "Programme échangé. L'autre est mis de côté : tu peux revenir dessus avec le même bouton.";
+      renderProgramme();
+    } else { askConfirm("side"); renderProgramme(); }
+    return true;
+  }
   if(act === "prog-reset"){ if(edConfirm === "reset"){ edConfirm = null; const custom = program.custom; program = prepProgram(clone(DEFAULT_PROGRAM)); program.custom = custom; saveProgram(); if(current) applyPlan(current); renderProgramme(); } else { askConfirm("reset"); renderProgramme(); } return true; }
   return false;
 }
@@ -1366,10 +1442,15 @@ function renderPickerList(){
 function pickExercise(id){
   const D = day(edDay);
   const item = {id, sets:3, reps:[8,12], mode:"lourd"};
+  item.id = freeId(id);
   if(picker.mode === "new"){ D.blocs.push({id: uid(), rest:[90], edited:true, items:[item]}); progChanged(null); closePicker(); setTimeout(() => { const els = document.querySelectorAll(".ed-bloc"); const last = els[els.length-1]; if(last) last.scrollIntoView({behavior:"smooth", block:"center"}); }, 50); return; }
   const b = D.blocs[picker.bi]; if(!b){ closePicker(); return; }
-  if(picker.mode === "add"){ if(b.items.length >= 3){ closePicker(); return; } if(b.emom) item.sets = b.emom; b.items.push(item); }
-  if(picker.mode === "swap" && b.items[picker.ii]){ const old = b.items[picker.ii]; b.items[picker.ii] = Object.assign({}, old, {id}); delete b.items[picker.ii].effort; }
+  if(picker.mode === "add"){ if(distinctBases(b) >= 3){ closePicker(); return; } if(b.emom) item.sets = b.emom; b.items.push(item); }
+  if(picker.mode === "swap" && b.items[picker.ii]){
+    // Change l'exercice et ses autres séries du même module (1re, 2e série…)
+    const oldBase = baseId(b.items[picker.ii].id);
+    b.items.forEach((x, k) => { if(baseId(x.id) === oldBase){ const ph = phaseNo(x.id); x.id = "\u0000"; const want = ph > 1 ? id + SEP + ph : id; b.items[k].id = planItems(edDay).some(y => y.id === want) ? freeId(id) : want; delete x.effort; } });
+  }
   progChanged(b); closePicker();
 }
 function createCustom(){
