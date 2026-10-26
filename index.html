@@ -547,7 +547,7 @@ const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
   we:{title:"Repos", warm:"", blocs:[]}
 }};
 
-const APP_VERSION = "10";
+const APP_VERSION = "11";
 let swReg = null;
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
 const LS_KEY = "repere-musculation-seances";
@@ -1243,7 +1243,7 @@ function itemHTML(b, bi, it, ii){
     + '<div class="ed-row"><span class="lbl">Options</span><span class="chips">'
     + (b.emom ? '' : '<button type="button" data-act="i-emom" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(!!it.emom)+'">EMOM</button>')
     + '<button type="button" data-act="i-max" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(!!it.max)+'">Reps max</button>'
-    + (n < 8 ? '<button type="button" data-act="i-phase" data-bi="'+bi+'" data-ii="'+ii+'">+ Autre série</button>' : '')
+    + '<button type="button" data-act="i-phase" data-bi="'+bi+'" data-ii="'+ii+'">+ Ajouter une série</button>'
     + '</span></div>'
     + '</div>';
 }
@@ -1266,7 +1266,7 @@ function blocHTML(b, bi, nb){
     + (b.emom ? '<span class="stepper"><button type="button" data-act="b-emin" data-d="-1" data-bi="'+bi+'" aria-label="Une minute de moins">−</button><span class="num">'+b.emom+' min</span><button type="button" data-act="b-emin" data-d="1" data-bi="'+bi+'" aria-label="Une minute de plus">+</button></span>' : '') + '</div>'
     + (b.emom ? '' : '<div class="ed-row"><span class="lbl">Repos</span><span class="chips">'+REST_CHOICES.map(s => '<button type="button" data-act="b-rest" data-sec="'+s+'" data-bi="'+bi+'" aria-pressed="'+(blockRest(b)[0]===s)+'">'+(s>=120?(s/60)+" min":s+" s")+'</button>').join("")+'</span></div>')
     + b.items.map((it, ii) => itemHTML(b, bi, it, ii)).join("")
-    + '<div class="ed-actions">'+(distinctBases(b) < 3 ? '<button type="button" class="btn-add" data-act="i-add" data-bi="'+bi+'">+ Ajouter un exercice à ce module</button>' : '<p class="side-note">3 exercices maximum par module.</p>')
+    + '<div class="ed-actions"><button type="button" class="btn-add" data-act="i-add" data-bi="'+bi+'">+ Ajouter un exercice à ce module</button>'
     + (edMove === b.id
       ? '<div class="move-row"><span class="lbl">Déplacer vers</span><span class="chips">'+DAY_KEYS.filter(k => k !== edDay).map(k => '<button type="button" data-act="b-moveto" data-day="'+k+'" data-bi="'+bi+'">'+DAY_META[k].short+'</button>').join("")+'<button type="button" data-act="b-move" data-bi="'+bi+'">Annuler</button></span></div>'
       : '<button type="button" class="btn-ghost" data-act="b-move" data-bi="'+bi+'">Déplacer vers un autre jour</button>')
@@ -1295,7 +1295,7 @@ function renderProgramme(){
     + '<li><b>Série dure :</b> finie à 1–2 reps de l\'échec. L\'échauffement ne compte pas.</li>'
     + '<li><b>Module :</b> 1 à 3 exercices enchaînés. Associe des muscles différents : le léger se fait pendant le repos du lourd.</li>'
     + '<li><b>Lourd / léger :</b> en lourd, peu de reps et charge haute ; en léger, plus de reps. Près de l\'échec, les deux font grossir autant. L\'app suit les deux séparément.</li>'
-    + '<li><b>Deux séries par exercice :</b> la 1re lourde, la 2e légère. « + Autre série » en ajoute une avec sa propre fourchette.</li>'
+    + '<li><b>Deux séries par exercice :</b> la 1re lourde, la 2e légère. « + Ajouter une série » en ajoute une avec sa propre fourchette.</li>'
     + '<li><b>Double progression :</b> ajoute des reps jusqu\'au haut de la fourchette, puis de la charge. L\'app te le propose à chaque exercice.</li>'
     + '<li><b>Protéines :</b> environ 1,6 g par kg de poids de corps et par jour.</li></ul></details>'
     + '<details class="more"><summary>Sources</summary><ul class="rules">'
@@ -1456,7 +1456,17 @@ function pickExercise(id){
   item.id = freeId(id);
   if(picker.mode === "new"){ D.blocs.push({id: uid(), rest:[90], edited:true, items:[item]}); progChanged(null); closePicker(); setTimeout(() => { const els = document.querySelectorAll(".ed-bloc"); const last = els[els.length-1]; if(last) last.scrollIntoView({behavior:"smooth", block:"center"}); }, 50); return; }
   const b = D.blocs[picker.bi]; if(!b){ closePicker(); return; }
-  if(picker.mode === "add"){ if(distinctBases(b) >= 3){ closePicker(); return; } if(b.emom) item.sets = b.emom; b.items.push(item); }
+  if(picker.mode === "add"){
+    if(b.emom){ item.sets = b.emom; b.items.push(item); }
+    else if(b.items.some(x => phaseNo(x.id) === 2)){
+      // Module en « 1re série lourde / 2e série légère » : le nouvel exercice reçoit ses deux séries, chacune à sa place
+      item.sets = 1; const second = {id: freeId(id) === item.id ? item.id + SEP + "2" : freeId(id), sets:1, reps:[10,12], mode:"leger"};
+      second.id = planItems(edDay).some(y => y.id === id + SEP + "2") ? freeId(id + SEP + "2") : id + SEP + "2";
+      let last1 = -1; b.items.forEach((x, k) => { if(phaseNo(x.id) === 1) last1 = k; });
+      b.items.splice(last1 + 1, 0, item); b.items.push(second);
+    }
+    else b.items.push(item);
+  }
   if(picker.mode === "swap" && b.items[picker.ii]){
     // Change l'exercice et ses autres séries du même module (1re, 2e série…)
     const oldBase = baseId(b.items[picker.ii].id);
