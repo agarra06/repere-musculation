@@ -1,5 +1,5 @@
 /* Cap 2000 : fonctionne hors connexion et se met à jour toute seule. */
-const CACHE = "cap2000-v1";
+const CACHE = "cap2000-v2";
 const SHELL = [
   "./",
   "./index.html",
