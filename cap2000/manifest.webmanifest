@@ -1,0 +1,17 @@
+{
+  "name": "Cap 2000 — Échecs",
+  "short_name": "Cap 2000",
+  "description": "Parcours d'échecs de 400 à 2000 : ouvertures, technique, mats et finales.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f1f3ee",
+  "theme_color": "#f1f3ee",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

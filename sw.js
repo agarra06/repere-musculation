@@ -23,7 +23,7 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   const ready = caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k.startsWith("repere") && k !== CACHE).map((k) => caches.delete(k))))
     .then(() => self.clients.claim());
   e.waitUntil(ready);
   // Les pages déjà ouvertes avec l'ancienne version se rechargent sur la nouvelle,
@@ -39,6 +39,9 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+
+  // Les autres apps rangées dans un sous-dossier (ex. cap2000/) gèrent elles-mêmes leurs fichiers.
+  if (url.origin === self.location.origin && url.pathname.startsWith(new URL("./cap2000/", self.registration.scope).pathname)) return;
 
   // La page : toujours la version du serveur ; la copie en cache ne sert que hors connexion.
   if (req.mode === "navigate") {
