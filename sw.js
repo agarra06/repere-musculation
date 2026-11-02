@@ -40,8 +40,8 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // Les autres apps rangées dans un sous-dossier (ex. cap2000/) gèrent elles-mêmes leurs fichiers.
-  if (url.origin === self.location.origin && url.pathname.startsWith(new URL("./cap2000/", self.registration.scope).pathname)) return;
+  // Les autres apps rangées dans un sous-dossier (cap2000/, suivi/) gèrent elles-mêmes leurs fichiers.
+  if (url.origin === self.location.origin && ["./cap2000/", "./suivi/"].some((d) => url.pathname.startsWith(new URL(d, self.registration.scope).pathname))) return;
 
   // La page : toujours la version du serveur ; la copie en cache ne sert que hors connexion.
   if (req.mode === "navigate") {
