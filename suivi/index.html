@@ -73,6 +73,9 @@ tr.ishit{background:var(--down-soft)}
 .sim{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 .simbox{border-left:3px solid var(--accent);padding:3px 0 3px 11px;font-size:13.5px;min-width:0}
 .simbox b{display:block;font-weight:600;margin-bottom:3px}
+.livewrap{display:grid;gap:5px}
+.live{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.liveitem{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-height:88px;overflow:hidden;min-width:0}
 .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
 .chart{min-width:0;display:grid;gap:5px}
 .chartbox{height:360px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden}
@@ -101,6 +104,13 @@ details .inner{display:grid;gap:9px;margin-top:9px}
     <span><b>Mar. 3 nov.</b> AMD après clôture (22h, appel à 23h Paris) · élections américaines</span>
     <span><b>Ven. 6 nov.</b> Emploi américain</span>
   </div>
+
+  <div class="livewrap">
+    <div class="small muted">Cours en direct TradingView (sans calcul de résultat)</div>
+    <div class="live" id="live"></div>
+  </div>
+
+  <div class="small muted" id="calcNote"></div>
 
   <div class="cards" id="cards"></div>
 
@@ -137,7 +147,7 @@ details .inner{display:grid;gap:9px;margin-top:9px}
     <details id="fallback">
       <summary>Si les cours ne se mettent pas à jour</summary>
       <div class="inner">
-        <p class="note">La page lit les cours sur un service public de CNBC, sans garantie officielle. S'il ne répond plus, crée une clé gratuite sur <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io</a> et colle-la ici : elle reste dans ce navigateur. Tu peux aussi saisir les cours à la main.</p>
+        <p class="note">Sans clé, la page essaie un service public de CNBC, sans garantie. Pour un flux fiable, crée une clé gratuite sur <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io</a> et colle-la ici : elle reste dans ce navigateur. Tu peux aussi saisir les cours à la main.</p>
         <div class="settings">
           <label>Clé Finnhub <input type="text" id="fhkey" style="width:230px;text-align:left" autocomplete="off"></label>
           <label>INTC <input type="number" step="0.01" id="manINTC" style="width:88px"></label>
@@ -167,7 +177,7 @@ var SEED={INTC:{last:65.76,prev:92.07},AMD:{last:504.80,prev:566.42},QQQ:{last:6
 
 function clone(o){return JSON.parse(JSON.stringify(o))}
 var cfg=seeded(), hist={INTC:[],AMD:[],QQQ:[]};
-function load(){try{var s=localStorage.getItem(KEY);if(s){var o=JSON.parse(s);if(o.cfg)cfg=o.cfg;if(o.hist&&o.day===dayKey())hist=o.hist}}catch(e){}}
+function load(){try{var s=localStorage.getItem(KEY);if(s){var o=JSON.parse(s);if(o.cfg)cfg=o.cfg;if(o.hist&&o.day===dayKey())hist=o.hist}}catch(e){}var m=/[#&]k=([A-Za-z0-9]+)/.exec(location.hash||'');if(m)cfg.fh=m[1]}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({cfg:cfg,hist:hist,day:dayKey()}))}catch(e){}}
 
 var quotes={};SYMS.forEach(function(s){quotes[s]={last:SEED[s].last,prev:SEED[s].prev,ext:null,extType:null,live:false}});
@@ -198,14 +208,17 @@ function jsonp(url){return new Promise(function(res,rej){var cb='q'+Date.now()+M
   function done(){clearTimeout(t);try{delete window[cb]}catch(e){window[cb]=undefined}sc.remove()}
   window[cb]=function(d){done();res(d)};sc.onerror=function(){done();rej(new Error('réponse refusée'))};t=setTimeout(function(){done();rej(new Error('pas de réponse'))},8000);
   sc.src=url+'&callback='+cb;document.head.appendChild(sc)})}
-function fromCnbc(){return jsonp('https://quote.cnbc.com/quote-html-webservice/quote.htm?partnerId=2&requestMethod=quick&exthrs=1&noform=1&fund=1&output=jsonp&symbols=INTC%7CAMD%7CQQQ').then(function(d){
-  var r=d&&d.QuickQuoteResult&&d.QuickQuoteResult.QuickQuote;if(!r)throw new Error('format inattendu');if(!Array.isArray(r))r=[r];var n=0;
+function withTimeout(ms){var c=new AbortController();setTimeout(function(){c.abort()},ms);return c.signal}
+function fromCnbcRest(){return fetch('https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=INTC%7CAMD%7CQQQ&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1',{signal:withTimeout(8000)}).then(function(r){if(!r.ok)throw new Error('réponse '+r.status);return r.json()}).then(readCnbc)}
+function fromCnbc(){return jsonp('https://quote.cnbc.com/quote-html-webservice/quote.htm?partnerId=2&requestMethod=quick&exthrs=1&noform=1&fund=1&output=jsonp&symbols=INTC%7CAMD%7CQQQ').then(readCnbc)}
+function readCnbc(d){var w=d&&(d.FormattedQuoteResult||d.QuickQuoteResult),r=w&&(w.FormattedQuote||w.QuickQuote);if(!r)throw new Error('format inattendu');if(!Array.isArray(r))r=[r];var n=0;
   r.forEach(function(x){if(SYMS.indexOf(x.symbol)<0)return;var e=x.ExtendedMktQuote||{},last=toNum(x.last);if(last==null)return;
     applyQuote(x.symbol,{last:last,prev:toNum(x.previous_day_closing),ext:toNum(e.last),extType:e.type});n++});
-  if(!n)throw new Error('aucun cours reçu');source='CNBC'})}
-function fromFinnhub(k){return Promise.all(SYMS.map(function(s){return fetch('https://finnhub.io/api/v1/quote?symbol='+s+'&token='+encodeURIComponent(k)).then(function(r){if(!r.ok)throw new Error('Finnhub '+r.status);return r.json()}).then(function(j){if(!j.c)throw new Error('Finnhub sans cours');applyQuote(s,{last:j.c,prev:j.pc})})})).then(function(){source='Finnhub'})}
-function tick(){var p=fromCnbc().catch(function(e){lastError=e.message;if(cfg.fh)return fromFinnhub(cfg.fh);throw e});
-  return p.then(function(){lastOk=Date.now();fails=0;lastError='';checkTriggers();save();render()}).catch(function(e){fails++;lastError=e.message;render()})}
+  if(!n)throw new Error('aucun cours reçu');source='CNBC'}
+function fromFinnhub(k){return Promise.all(SYMS.map(function(s){return fetch('https://finnhub.io/api/v1/quote?symbol='+s+'&token='+encodeURIComponent(k),{signal:withTimeout(8000)}).then(function(r){if(!r.ok)throw new Error('Finnhub '+r.status);return r.json()}).then(function(j){if(!j.c)throw new Error('Finnhub sans cours');applyQuote(s,{last:j.c,prev:j.pc})})})).then(function(){source='Finnhub'})}
+function tick(){var src=[],errs=[];if(cfg.fh)src.push(['Finnhub',function(){return fromFinnhub(cfg.fh)}]);src.push(['CNBC direct',fromCnbcRest],['CNBC script',fromCnbc]);
+  var p=src.reduce(function(acc,x){return acc.catch(function(){return x[1]().catch(function(e){errs.push(x[0]+' : '+((e&&e.message)||'échec'));throw e})})},Promise.reject());
+  return p.then(function(){lastOk=Date.now();fails=0;lastError='';checkTriggers();save();render()}).catch(function(){fails++;lastError=errs.join(' · ');render()})}
 
 /* ---------- position et paliers ---------- */
 function shareOf(s){return s==='INTC'?cfg.split/100:1-cfg.split/100}
@@ -256,12 +269,12 @@ function renderSim(){if(!effective('INTC').units||!effective('AMD').units){$('si
     return'<div class="simbox"><b>'+title+'</b>Intel : '+f2.format(eI.pru)+' → <span class="num">'+f2.format(nI)+' $</span>, hausse pour revenir à zéro +'+f1.format(Math.max(nI/pI-1,0)*100)+' %<br>AMD : '+f2.format(eA.pru)+' → <span class="num">'+f2.format(nA)+' $</span>, hausse pour revenir à zéro +'+f1.format(Math.max(nA/pA-1,0)*100)+' %<br>Hausse commune pour +5 % sur le tout : +'+f1.format(Math.max(tot*1.05/val-1,0)*100)+' %</div>'}
   $('sim').innerHTML=next?box('Si le prochain palier ('+f0.format(next.amt)+' €) passe au cours actuel',next.amt)+box('Si tout le reste ('+f0.format(left)+' €) passe au cours actuel',left):'<div class="simbox"><b>Tous les paliers sont exécutés.</b></div>'}
 
-function render(){var ph=phase();var pe=$('phase');pe.textContent=PHASE[ph][0];pe.className=PHASE[ph][1];
+function render(){var ph=phase();$('calcNote').textContent=lastOk?'':'Résultats et paliers calculés sur la clôture du 30 octobre tant que le flux ci-dessus n\'est pas connecté.';var pe=$('phase');pe.textContent=PHASE[ph][0];pe.className=PHASE[ph][1];
   var fe=$('feed'),age=Date.now()-lastOk;
   if(!lastOk){fe.textContent=fails?'Flux indisponible · dernières clôtures':'Connexion au flux…';fe.className=fails?'pill bad':'pill warn'}
   else if(age>STALE_MS||fails>=2){fe.textContent='Flux figé depuis '+parisTime(lastOk);fe.className='pill bad'}
   else{fe.textContent=source+' · maj '+parisTime(lastOk);fe.className='pill ok'}
-  $('feedDetail').textContent=lastError?('Dernière erreur du flux : '+lastError+'.'):'';
+  $('feedDetail').textContent=lastError?('Sources essayées : '+lastError+'.'):'';
   if(fails>=2&&!$('fallback').dataset.opened){$('fallback').open=true;$('fallback').dataset.opened='1'}
   $('cards').innerHTML=SYMS.map(card).join('');renderPos();renderTr();renderSim()}
 
@@ -295,6 +308,10 @@ function renderExec(i){var t=cfg.tranches[i],c=$('tx'+i);
     b.addEventListener('change',function(){var v=toNum(b.value);if(v>0){t.fA=v;save();render()}else b.value=t.fA});
     $('u'+i).addEventListener('click',function(){t.done=false;delete t.fI;delete t.fA;save();renderExec(i);render()})}}
 
+function isDark(){return document.documentElement.dataset.theme==='dark'||(document.documentElement.dataset.theme!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}
+function buildLive(){var host=$('live');host.innerHTML='';SYMS.forEach(function(s){var d=document.createElement('div');d.className='liveitem';d.innerHTML='<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div></div>';host.appendChild(d);
+  var sc=document.createElement('script');sc.src='https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js';sc.async=true;sc.onerror=function(){d.innerHTML='<div class="chartfail">'+NAMES[s]+' : cours TradingView indisponible.</div>'};
+  sc.textContent=JSON.stringify({symbol:TV[s],width:'100%',isTransparent:true,colorTheme:isDark()?'dark':'light',locale:'fr'});d.querySelector('.tradingview-widget-container').appendChild(sc)})}
 function buildCharts(){var dark=document.documentElement.dataset.theme==='dark'||(document.documentElement.dataset.theme!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
   var host=$('charts');host.innerHTML='';SYMS.forEach(function(s){var wrap=document.createElement('div');wrap.className='chart';
     var url='https://www.tradingview.com/symbols/'+TV[s].replace(':','-')+'/';
@@ -308,7 +325,7 @@ $('alerts').addEventListener('click',function(){try{audio=audio||new (window.Aud
   if(window.Notification&&Notification.permission==='default'){Notification.requestPermission().then(fin,fin)}else fin()});
 document.addEventListener('visibilitychange',function(){if(!document.hidden){document.title='Suivi Intel AMD Nasdaq';tick()}});
 
-load();buildStatic();render();tick();setInterval(tick,POLL_MS);setInterval(render,30000);
+load();buildStatic();render();(function loop(){tick().then(function(){setTimeout(loop,cfg.fh?5000:POLL_MS)})})();setInterval(render,30000);buildLive();
 window.suivi={tick:tick,quotes:quotes,cfg:function(){return cfg},effective:effective,pruAfter:pruAfter};
 })();
 </script>
