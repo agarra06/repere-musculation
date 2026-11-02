@@ -50,6 +50,9 @@ button:hover{border-color:var(--accent);color:var(--accent)}
 .card .chg{font:500 15px var(--mono);font-variant-numeric:tabular-nums}
 .line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}
 .line .num{color:var(--fg)}
+.line .num.up{color:var(--up)} .line .num.down{color:var(--down)}
+.line.since{font-size:15px;font-weight:600;color:var(--fg)}
+.line.since .num{font-weight:600}
 svg.spark{display:block;width:100%;height:46px;margin-top:4px}
 section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 15px;display:grid;gap:11px;min-width:0}
 .sectop{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;align-items:baseline}
@@ -102,9 +105,9 @@ details .inner{display:grid;gap:9px;margin-top:9px}
   <div class="cards" id="cards"></div>
 
   <section>
-    <div class="sectop"><h2>Position</h2><span class="small muted">Gain ou perte en € estimé hors effet de change. Montants et prix de revient modifiables.</span></div>
+    <div class="sectop"><h2>Position</h2><span class="small muted">En dollars, hors effet de change et frais. Quantités, prix d'entrée et ordres modifiables.</span></div>
     <div class="scroll"><table>
-      <thead><tr><th>Titre</th><th>Investi de départ (€)</th><th>Prix d'entrée ($)</th><th>Investi total (€)</th><th>Prix de revient ($)</th><th>Cours ($)</th><th>Résultat (€)</th><th>Résultat (%)</th><th>Hausse pour revenir à zéro</th></tr></thead>
+      <thead><tr><th>Titre</th><th>Titres achetés</th><th>Prix d'entrée ($)</th><th>Ordre de vente ($)</th><th>Investi total ($)</th><th>Prix de revient ($)</th><th>Cours ($)</th><th>Résultat ($)</th><th>Résultat (%)</th><th>Hausse pour revenir à zéro</th><th>Prix pour +5 %</th></tr></thead>
       <tbody id="posBody"></tbody>
     </table></div>
   </section>
@@ -115,6 +118,7 @@ details .inner{display:grid;gap:9px;margin-top:9px}
       <label>Clôture de référence QQQ ($) <input type="number" step="0.01" id="ref"></label>
       <label>Part Intel (%) <input type="number" step="5" min="0" max="100" id="split" style="width:70px"></label>
       <span class="muted" id="splitLabel"></span>
+      <label>EUR/USD <input type="number" step="0.01" id="fx" style="width:76px"></label>
     </div>
     <div class="scroll"><table>
       <thead><tr><th>Palier</th><th>Montant (€)</th><th>Baisse QQQ (%)</th><th>Niveau QQQ ($)</th><th>Écart au cours</th><th>État</th><th>Intel (€)</th><th>AMD (€)</th><th>Exécution</th></tr></thead>
@@ -151,14 +155,14 @@ details .inner{display:grid;gap:9px;margin-top:9px}
 <script>
 (function(){
 'use strict';
-var POLL_MS=15000, STALE_MS=60000, KEY='suivi-intel-amd-v1';
+var POLL_MS=15000, STALE_MS=60000, KEY='suivi-intel-amd-v2';
 var SYMS=['INTC','AMD','QQQ'];
 var NAMES={INTC:'Intel',AMD:'AMD',QQQ:'Nasdaq 100 (QQQ)'};
 var TV={INTC:'NASDAQ:INTC',AMD:'NASDAQ:AMD',QQQ:'NASDAQ:QQQ'};
-var DEFAULTS={pos:{INTC:{inv:0,pru:0},AMD:{inv:0,pru:0}},ref:690.49,split:50,
+var DEFAULTS={pos:{INTC:{qty:0,pru:0,sell:0},AMD:{qty:0,pru:0,sell:0}},ref:690.49,split:50,fx:1.12,
   tranches:[{amt:0,pct:-1},{amt:0,pct:-2},{amt:0,pct:-3}],fh:''};
 /* Les montants ne sont pas dans cette page : ils viennent du lien privé (#p=...), jamais envoyé au serveur, puis restent dans ce navigateur. */
-function seeded(){var c=clone(DEFAULTS),m=/[#&]p=([\d.,]+)/.exec(location.hash||'');if(m){var v=m[1].split(',').map(Number);if(v.length===7&&v.every(function(x){return isFinite(x)&&x>=0})){c.pos.INTC={inv:v[0],pru:v[1]};c.pos.AMD={inv:v[2],pru:v[3]};c.tranches.forEach(function(t,i){t.amt=v[4+i]})}}return c}
+function seeded(){var c=clone(DEFAULTS),m=/[#&]p=([\d.,]+)/.exec(location.hash||'');if(m){var v=m[1].split(',').map(Number);if(v.length===9&&v.every(function(x){return isFinite(x)&&x>=0})){c.pos.INTC={qty:v[0],pru:v[1],sell:v[2]};c.pos.AMD={qty:v[3],pru:v[4],sell:v[5]};c.tranches.forEach(function(t,i){t.amt=v[6+i]})}}return c}
 var SEED={INTC:{last:65.76,prev:92.07},AMD:{last:504.80,prev:566.42},QQQ:{last:690.49,prev:715.34}};
 
 function clone(o){return JSON.parse(JSON.stringify(o))}
@@ -206,7 +210,7 @@ function tick(){var p=fromCnbc().catch(function(e){lastError=e.message;if(cfg.fh
 /* ---------- position et paliers ---------- */
 function shareOf(s){return s==='INTC'?cfg.split/100:1-cfg.split/100}
 function fillKey(s){return s==='INTC'?'fI':'fA'}
-function effective(s){var b=cfg.pos[s],inv=b.inv,units=(b.inv>0&&b.pru>0)?b.inv/b.pru:0;if(!units)inv=0;cfg.tranches.forEach(function(t){if(!t.done)return;var add=t.amt*shareOf(s),px=t[fillKey(s)];if(add>0&&px>0){inv+=add;units+=add/px}});return{inv:inv,units:units,pru:units>0?inv/units:0}}
+function effective(s){var b=cfg.pos[s],units=(b.qty>0&&b.pru>0)?b.qty:0,inv=units*b.pru;cfg.tranches.forEach(function(t){if(!t.done)return;var add=t.amt*shareOf(s)*cfg.fx,px=t[fillKey(s)];if(add>0&&px>0){inv+=add;units+=add/px}});return{inv:inv,units:units,pru:units>0?inv/units:0}}
 function levelOf(t){return cfg.ref*(1+t.pct/100)}
 function pruAfter(e,add,px){return (e.inv+add)/(e.units+add/px)}
 
@@ -227,7 +231,7 @@ function card(s){var q=quotes[s],p=priceOf(s),chg=(p/q.prev-1)*100,lines='';
   var tag=q.ext!=null&&phase()!=='reg'?(phase()==='pre'?'pré-marché':'hors séance'):(q.live?'':'clôture 30 oct.');
   if(s==='QQQ'){var d=(p/cfg.ref-1)*100;lines='<div class="line"><span>Depuis la clôture de référence</span><span class="num '+cls(d)+'">'+sgn(d,f2)+' %</span></div>'+nextLine(p)}
   else if(!effective(s).units){lines='<div class="line"><span>Position</span><span class="num">non renseignée</span></div>'}
-  else{var e=effective(s),r=(p/e.pru-1)*100;lines='<div class="line"><span>Prix de revient</span><span class="num">'+f2.format(e.pru)+' $</span></div><div class="line"><span>Résultat</span><span class="num '+cls(r)+'">'+sgn(r,f1)+' % · '+sgn(e.units*p-e.inv,f0)+' €</span></div>'}
+  else{var e=effective(s),r=(p/e.pru-1)*100;var sl=cfg.pos[s].sell;lines='<div class="line since"><span>Depuis l\'entrée</span><span class="num '+cls(r)+'">'+sgn(r,f1)+' % · '+sgn(e.units*p-e.inv,f0)+' $</span></div><div class="line"><span>'+(e.units>cfg.pos[s].qty?'Prix de revient':'Prix d\'entrée')+' · '+f0.format(e.units)+' titres</span><span class="num">'+f2.format(e.pru)+' $</span></div><div class="line"><span>Prix pour +5 % sur la ligne</span><span class="num">'+f2.format(e.pru*1.05)+' $ · +'+f1.format(Math.max(e.pru*1.05/p-1,0)*100)+' %</span></div>'+(sl>0?'<div class="line"><span>Ordre de vente à '+f2.format(sl)+' $</span><span class="num">'+sgn((sl/p-1)*100,f1)+' %</span></div>':'')}
   return'<div class="card"><div class="top"><span class="name">'+NAMES[s]+'</span><span class="small muted">'+tag+'</span></div>'+
     '<div class="top"><span class="price">'+f2.format(p)+'</span><span class="chg '+cls(chg)+'">'+sgn(chg,f2)+' %</span></div>'+lines+
     '<div class="line"><span>Clôture précédente</span><span class="num">'+f2.format(q.prev)+' $</span></div>'+spark(s)+'</div>'}
@@ -235,9 +239,9 @@ function nextLine(p){var t=null;cfg.tranches.some(function(x){if(!x.done&&!x.hit
   var l=levelOf(t);return'<div class="line"><span>Prochain palier à '+f2.format(l)+' $</span><span class="num">'+sgn((l/p-1)*100,f2)+' %</span></div>'}
 
 function renderPos(){var tot={inv:0,val:0},rows=['INTC','AMD'].map(function(s){var b=cfg.pos[s],e=effective(s),p=priceOf(s),val=e.units*p,pl=val-e.inv;tot.inv+=e.inv;tot.val+=val;return{s:s,b:b,e:e,p:p,pl:pl}});
-  rows.forEach(function(r){var s=r.s;if(!r.e.units){['total','pru','pl','pct','back'].forEach(function(k){$('p'+s+k).textContent='—'});$('p'+s+'px').textContent=f2.format(r.p);return}$('p'+s+'total').textContent=f0.format(r.e.inv);$('p'+s+'pru').textContent=f2.format(r.e.pru);$('p'+s+'px').textContent=f2.format(r.p);
-    var a=$('p'+s+'pl'),b=$('p'+s+'pct'),c=$('p'+s+'back');a.textContent=sgn(r.pl,f0);a.className=cls(r.pl);b.textContent=sgn(r.pl/r.e.inv*100,f1)+' %';b.className=cls(r.pl);c.textContent=r.p<r.e.pru?'+'+f1.format((r.e.pru/r.p-1)*100)+' %':'—'});
-  var pl=tot.val-tot.inv;$('ttotal').textContent=f0.format(tot.inv);var a=$('tpl'),b=$('tpct');a.textContent=sgn(pl,f0);a.className=cls(pl);b.textContent=tot.inv>0?sgn(pl/tot.inv*100,f1)+' %':'—';b.className=cls(pl)}
+  rows.forEach(function(r){var s=r.s;if(!r.e.units){['total','pru','pl','pct','back','tgt'].forEach(function(k){$('p'+s+k).textContent='—'});$('p'+s+'px').textContent=f2.format(r.p);return}$('p'+s+'total').textContent=f0.format(r.e.inv);$('p'+s+'pru').textContent=f2.format(r.e.pru);$('p'+s+'px').textContent=f2.format(r.p);
+    var a=$('p'+s+'pl'),b=$('p'+s+'pct'),c=$('p'+s+'back');a.textContent=sgn(r.pl,f0);a.className=cls(r.pl);b.textContent=sgn(r.pl/r.e.inv*100,f1)+' %';b.className=cls(r.pl);c.textContent=r.p<r.e.pru?'+'+f1.format((r.e.pru/r.p-1)*100)+' %':'—';$('p'+s+'tgt').textContent=f2.format(r.e.pru*1.05)+' $'});
+  var pl=tot.val-tot.inv;$('ttotal').textContent=f0.format(tot.inv);var a=$('tpl'),b=$('tpct');a.textContent=sgn(pl,f0);a.className=cls(pl);b.textContent=tot.inv>0?sgn(pl/tot.inv*100,f1)+' %':'—';b.className=cls(pl);$('tback').textContent=(tot.inv>0&&tot.val<tot.inv)?'+'+f1.format((tot.inv/tot.val-1)*100)+' %':'—';$('ttgt').textContent=tot.inv>0?'+'+f1.format(Math.max(tot.inv*1.05/tot.val-1,0)*100)+' % sur les deux':'—'}
 
 function renderTr(){var p=priceOf('QQQ'),ph=phase(),left=0;cfg.tranches.forEach(function(t,i){if(!t.done)left+=t.amt;var l=levelOf(t);
   $('tl'+i).textContent=f2.format(l);var g=(l/p-1)*100;$('tg'+i).textContent=t.done?'—':sgn(g,f2)+' %';
@@ -248,8 +252,8 @@ function renderTr(){var p=priceOf('QQQ'),ph=phase(),left=0;cfg.tranches.forEach(
   $('splitLabel').textContent='AMD '+(100-cfg.split)+' %'}
 
 function renderSim(){if(!effective('INTC').units||!effective('AMD').units){$('sim').innerHTML='';return}var pI=priceOf('INTC'),pA=priceOf('AMD'),eI=effective('INTC'),eA=effective('AMD'),next=null,left=0;cfg.tranches.forEach(function(t){if(!t.done){left+=t.amt;if(!next)next=t}});
-  function box(title,amt){var aI=amt*shareOf('INTC'),aA=amt*shareOf('AMD'),nI=pruAfter(eI,aI,pI),nA=pruAfter(eA,aA,pA);
-    return'<div class="simbox"><b>'+title+'</b>Intel : '+f2.format(eI.pru)+' → <span class="num">'+f2.format(nI)+' $</span>, hausse pour revenir à zéro +'+f1.format(Math.max(nI/pI-1,0)*100)+' %<br>AMD : '+f2.format(eA.pru)+' → <span class="num">'+f2.format(nA)+' $</span>, hausse pour revenir à zéro +'+f1.format(Math.max(nA/pA-1,0)*100)+' %</div>'}
+  function box(title,amt){var aI=amt*shareOf('INTC')*cfg.fx,aA=amt*shareOf('AMD')*cfg.fx,tot=eI.inv+eA.inv+aI+aA,val=eI.units*pI+eA.units*pA+aI+aA,nI=pruAfter(eI,aI,pI),nA=pruAfter(eA,aA,pA);
+    return'<div class="simbox"><b>'+title+'</b>Intel : '+f2.format(eI.pru)+' → <span class="num">'+f2.format(nI)+' $</span>, hausse pour revenir à zéro +'+f1.format(Math.max(nI/pI-1,0)*100)+' %<br>AMD : '+f2.format(eA.pru)+' → <span class="num">'+f2.format(nA)+' $</span>, hausse pour revenir à zéro +'+f1.format(Math.max(nA/pA-1,0)*100)+' %<br>Hausse commune pour +5 % sur le tout : +'+f1.format(Math.max(tot*1.05/val-1,0)*100)+' %</div>'}
   $('sim').innerHTML=next?box('Si le prochain palier ('+f0.format(next.amt)+' €) passe au cours actuel',next.amt)+box('Si tout le reste ('+f0.format(left)+' €) passe au cours actuel',left):'<div class="simbox"><b>Tous les paliers sont exécutés.</b></div>'}
 
 function render(){var ph=phase();var pe=$('phase');pe.textContent=PHASE[ph][0];pe.className=PHASE[ph][1];
@@ -263,13 +267,15 @@ function render(){var ph=phase();var pe=$('phase');pe.textContent=PHASE[ph][0];p
 
 /* ---------- construction initiale ---------- */
 function buildStatic(){
-  var body='';['INTC','AMD'].forEach(function(s){body+='<tr><td>'+NAMES[s]+'</td><td><input type="number" step="1000" id="i'+s+'inv"></td><td><input type="number" step="0.01" id="i'+s+'pru"></td><td id="p'+s+'total"></td><td id="p'+s+'pru"></td><td id="p'+s+'px"></td><td id="p'+s+'pl"></td><td id="p'+s+'pct"></td><td id="p'+s+'back"></td></tr>'});
-  body+='<tr class="total"><td>Total</td><td></td><td></td><td id="ttotal"></td><td></td><td></td><td id="tpl"></td><td id="tpct"></td><td></td></tr>';$('posBody').innerHTML=body;
-  ['INTC','AMD'].forEach(function(s){var a=$('i'+s+'inv'),b=$('i'+s+'pru');a.value=cfg.pos[s].inv;b.value=cfg.pos[s].pru;
-    a.addEventListener('change',function(){var v=toNum(a.value);if(v>0){cfg.pos[s].inv=v;save();render()}else a.value=cfg.pos[s].inv});
+  var body='';['INTC','AMD'].forEach(function(s){body+='<tr><td>'+NAMES[s]+'</td><td><input type="number" step="1" id="i'+s+'qty" style="width:80px"></td><td><input type="number" step="0.01" id="i'+s+'pru" style="width:84px"></td><td><input type="number" step="0.01" id="i'+s+'sell" style="width:84px"></td><td id="p'+s+'total"></td><td id="p'+s+'pru"></td><td id="p'+s+'px"></td><td id="p'+s+'pl"></td><td id="p'+s+'pct"></td><td id="p'+s+'back"></td><td id="p'+s+'tgt"></td></tr>'});
+  body+='<tr class="total"><td>Total</td><td></td><td></td><td></td><td id="ttotal"></td><td></td><td></td><td id="tpl"></td><td id="tpct"></td><td id="tback"></td><td id="ttgt"></td></tr>';$('posBody').innerHTML=body;
+  ['INTC','AMD'].forEach(function(s){var a=$('i'+s+'qty'),b=$('i'+s+'pru'),c=$('i'+s+'sell');a.value=cfg.pos[s].qty;b.value=cfg.pos[s].pru;c.value=cfg.pos[s].sell;
+    a.addEventListener('change',function(){var v=toNum(a.value);if(v>0){cfg.pos[s].qty=v;save();render()}else a.value=cfg.pos[s].qty});
+    c.addEventListener('change',function(){var v=toNum(c.value);if(v>=0){cfg.pos[s].sell=v;save();render()}else c.value=cfg.pos[s].sell});
     b.addEventListener('change',function(){var v=toNum(b.value);if(v>0){cfg.pos[s].pru=v;save();render()}else b.value=cfg.pos[s].pru})});
   buildTranches();
-  var r=$('ref'),sp=$('split');r.value=cfg.ref;sp.value=cfg.split;
+  var r=$('ref'),sp=$('split'),fx=$('fx');r.value=cfg.ref;sp.value=cfg.split;fx.value=cfg.fx;
+  fx.addEventListener('change',function(){var v=toNum(fx.value);if(v>0){cfg.fx=v;save();render()}else fx.value=cfg.fx});
   r.addEventListener('change',function(){var v=toNum(r.value);if(v>0){cfg.ref=v;save();render()}else r.value=cfg.ref});
   sp.addEventListener('change',function(){var v=toNum(sp.value);if(v!=null&&v>=0&&v<=100){cfg.split=v;save();render()}else sp.value=cfg.split});
   var k=$('fhkey');k.value=cfg.fh||'';k.addEventListener('change',function(){cfg.fh=k.value.trim();save();tick()});
