@@ -309,6 +309,7 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .kp-row button{font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .kp-row .kp-next{background:var(--leger);border-color:var(--leger);color:var(--on-accent)}
 body.kp-open{padding-bottom:360px}
+body.typing .tabs,body.typing .timer{display:none}
 body.kp-open .timer{bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 340px)}
 .kp-target{border-color:var(--leger)!important;background:var(--surface)!important;box-shadow:0 0 0 2px var(--leger)}
 input[readonly][inputmode="none"]{caret-color:transparent;cursor:pointer}
@@ -574,7 +575,7 @@ const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
   we:{title:"Repos", warm:"", blocs:[]}
 }};
 
-const APP_VERSION = "13";
+const APP_VERSION = "14";
 let swReg = null;
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
 const LS_KEY = "repere-musculation-seances";
@@ -1374,6 +1375,7 @@ function renderProgramme(){
     + '<li><a href="https://www.strongerbyscience.com/?p=62454" target="_blank" rel="noopener">Leg curl assis vs Nordic curl</a></li>'
     + '<li><a href="https://bjsm.bmj.com/content/52/6/376" target="_blank" rel="noopener">Morton et al. 2018, protéines</a></li></ul></details>'
     + (sideProgram() ? '<div class="side-prog"><strong>Programme mis de côté</strong><span>Ton programme précédent est gardé sur ce téléphone, avec toutes tes modifications. Tu peux échanger les deux à tout moment.</span><button type="button" class="btn-ghost'+(edConfirm==="side"?" confirm":"")+'" data-act="prog-side">'+(edConfirm==="side"?"Confirmer l\'échange":"Reprendre le programme mis de côté")+'</button></div>' : '')
+    + '<div class="side-prog"><strong>Saisie des chiffres</strong><span>Si la page saute quand tu touches une case, passe sur le pavé de l\'app : il évite le clavier de l\'iPhone.</span><span class="seg2" role="group" aria-label="Saisie"><button type="button" data-act="kp-mode" data-on="0" aria-pressed="'+(!KP_ON)+'">Clavier iPhone</button><button type="button" data-act="kp-mode" data-on="1" aria-pressed="'+KP_ON+'">Pavé de l\'app</button></span></div>'
     + '<div class="side-prog"><strong>Version '+APP_VERSION+'</strong><span>L\'app se met à jour toute seule quand une nouvelle version est en ligne. Ce bouton force la vérification ; tes séances et ton programme ne bougent pas.</span><button type="button" class="btn-ghost" data-act="check-update">Rechercher une mise à jour</button></div>'
     + '<button type="button" class="btn-danger'+(edConfirm===resetKey?" confirm":"")+'" data-act="prog-reset">'+(edConfirm===resetKey?"Confirmer : revenir au programme Upper / Lower de départ":"Revenir au programme Upper / Lower de départ")+'</button>';
 }
@@ -1439,6 +1441,7 @@ function onEditorClick(a){
   if(act === "i-swap" && b){ openPicker({mode:"swap", bi, ii}); return true; }
   if(act === "b-new"){ openPicker({mode:"new"}); return true; }
   if(act === "check-update"){ checkUpdate(true); return true; }
+  if(act === "kp-mode"){ setKp(a.dataset.on === "1"); renderProgramme(); return true; }
   if(act === "prog-side"){
     if(edConfirm === "side"){
       edConfirm = null; const other = sideProgram(); if(!other) return true;
@@ -1626,14 +1629,21 @@ function keepVisible(el){
 }
 document.addEventListener("focusin", ev => {
   const el = ev.target;
-  if(!el.matches || !el.matches("input") || el.matches(KP_SEL)) return;
+  if(!el.matches || !el.matches("input") || (KP_ON && el.matches(KP_SEL))) return;
   [60, 300, 650, 1000].forEach(t => setTimeout(() => keepVisible(el), t));
 });
 if(window.visualViewport) window.visualViewport.addEventListener("resize", () => keepVisible(document.activeElement));
 /* ===================== Pavé numérique intégré (remplace le clavier de l'iPhone) ===================== */
 const KP_SEL = '#view-seance input[data-f], input[data-eq], input[data-ed="lo"], input[data-ed="hi"]';
 let kp = null;
-function kpPrep(root){ (root || document).querySelectorAll(KP_SEL).forEach(i => { if(!i.readOnly){ i.readOnly = true; i.setAttribute("inputmode", "none"); } }); }
+let KP_ON = false; try{ KP_ON = localStorage.getItem("repere-pave") === "1"; }catch(e){}
+function kpPrep(root){
+  (root || document).querySelectorAll(KP_SEL).forEach(i => {
+    if(KP_ON && !i.readOnly){ i.readOnly = true; i.setAttribute("inputmode", "none"); }
+    if(!KP_ON && i.readOnly){ i.readOnly = false; i.setAttribute("inputmode", i.dataset.f === "kg" || i.dataset.eq ? "decimal" : "numeric"); }
+  });
+}
+function setKp(on){ KP_ON = on; try{ localStorage.setItem("repere-pave", on ? "1" : "0"); }catch(e){} if(!on) kpClose(); kpPrep(); }
 new MutationObserver(() => kpPrep()).observe(document.body, {childList:true, subtree:true});
 function kpDecimal(el){ return el.dataset.f === "kg" || !!el.dataset.eq; }
 function kpContext(el){
@@ -1693,10 +1703,16 @@ function kpKey(key){
 document.addEventListener("click", ev => {
   const kb = ev.target.closest && ev.target.closest("[data-kp]");
   if(kb){ ev.preventDefault(); ev.stopPropagation(); kpKey(kb.dataset.kp); return; }
-  const el = ev.target.closest && ev.target.closest(KP_SEL);
+  const el = KP_ON && ev.target.closest && ev.target.closest(KP_SEL);
   if(el){ ev.preventDefault(); ev.stopPropagation(); el.blur(); kpOpen(el); }
 }, true);
-document.addEventListener("focusin", ev => { const el = ev.target; if(el.matches && el.matches(KP_SEL)) el.blur(); }, true);
+document.addEventListener("focusin", ev => {
+  const el = ev.target; if(!el.matches || !el.matches("input")) return;
+  if(KP_ON && el.matches(KP_SEL)){ el.blur(); return; }
+  // Clavier de l'iPhone ouvert : on retire les barres fixées en bas, qui font sauter la page sur iOS récent
+  document.body.classList.add("typing");
+}, true);
+document.addEventListener("focusout", () => { setTimeout(() => { const a = document.activeElement; if(!a || !a.matches || !a.matches("input")) document.body.classList.remove("typing"); }, 50); }, true);
 /* ===================== Mises à jour ===================== */
 function sessionGet(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }
 function sessionSet(k, v){ try{ sessionStorage.setItem(k, v); }catch(e){} }
