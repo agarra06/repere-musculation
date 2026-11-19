@@ -294,6 +294,14 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 
+/* Matériel */
+.eq-row{display:flex}
+.eq-link{border:0;background:transparent;padding:4px 0;font-size:13px;font-weight:600;color:var(--leger);text-align:left}
+.eq-form{display:flex;gap:10px;flex-wrap:wrap}
+.eq-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-3)}
+.eq-form input{width:120px;height:42px;border:1px solid var(--line-2);border-radius:9px;background:var(--surface-2);padding:0 10px;font-family:var(--f-display);font-weight:600;font-size:20px;color:var(--ink)}
+.sets input,.eq-form input,.reps-in input{touch-action:manipulation}
+
 /* Programme mis de côté */
 .side-prog{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--ink-2)}
 .side-prog strong{font-family:var(--f-display);font-size:20px;text-transform:uppercase;color:var(--ink)}
@@ -547,7 +555,7 @@ const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
   we:{title:"Repos", warm:"", blocs:[]}
 }};
 
-const APP_VERSION = "11";
+const APP_VERSION = "12";
 let swReg = null;
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
 const LS_KEY = "repere-musculation-seances";
@@ -707,8 +715,38 @@ function lastFor(id, date, mode, maxOnly){
   }
   return null;
 }
+function equipOf(id){ return (program && program.equip && program.equip[baseId(id)]) || {}; }
+function eqSummary(id){ const q = equipOf(id), parts = []; if(q.max) parts.push("max " + fmt(q.max) + " kg"); if(q.inc) parts.push("palier " + fmt(q.inc) + " kg"); return parts.join(" · "); }
+function eqFormHTML(id){
+  const q = equipOf(id), b = baseId(id);
+  return '<div class="eq-form">'
+    + '<label>Charge max dispo (kg)<input type="text" inputmode="decimal" autocomplete="off" data-eq="max" data-base="'+b+'" value="'+(q.max != null ? fmtIn(q.max) : "")+'" placeholder="aucune"></label>'
+    + '<label>Palier (kg)<input type="text" inputmode="decimal" autocomplete="off" data-eq="inc" data-base="'+b+'" value="'+(q.inc != null ? fmtIn(q.inc) : "")+'" placeholder="'+fmtIn(exo(b).inc)+'"></label></div>';
+}
+function setEquip(el){
+  const b = el.dataset.base, f = el.dataset.eq, n = parseNum(el.value);
+  program.equip = program.equip || {};
+  const q = Object.assign({}, program.equip[b] || {});
+  if(n == null || n <= 0) delete q[f]; else q[f] = n;
+  if(Object.keys(q).length) program.equip[b] = q; else delete program.equip[b];
+  saveProgram();
+}
+let eqOpen = null;
+// Met à jour les conseils sans redessiner les champs, pour garder le clavier ouvert
+function refreshEq(base){
+  if(activeTab !== "seance" || !current) return;
+  day(current.day).blocs.forEach(b => b.items.forEach(it => {
+    if(baseId(it.id) !== base) return;
+    const card = document.getElementById("ex-" + it.id); if(!card) return;
+    const tmp = document.createElement("div"); tmp.innerHTML = exoHTML(it, b);
+    const fresh = tmp.firstElementChild;
+    const s1 = card.querySelector(".sugg"), s2 = fresh.querySelector(".sugg"); if(s1 && s2) s1.replaceWith(s2);
+    const l1 = card.querySelector(".eq-link"), l2 = fresh.querySelector(".eq-link"); if(l1 && l2) l1.textContent = l2.textContent;
+  }));
+}
 function suggestion(it, last){
   const e = exo(it.id), lo = it.reps[0], hi = it.reps[1], u = e.unit, rt = rngTxt(it);
+  const q = equipOf(it.id), inc = q.inc || e.inc, step = q.inc || (e.inc >= 2.5 ? 2.5 : 1);
   if(it.max){
     if(!last) return {kind:"new", kg:null, text:"Première fois : fais le maximum de reps à chaque minute et note-les. La prochaine fois, l'objectif sera de battre ce total."};
     const tot = last.sets.reduce((s,x) => s + x.reps, 0), kgm = Math.max(...last.sets.map(s => s.kg || 0));
@@ -719,7 +757,11 @@ function suggestion(it, last){
   const topKg = Math.max(...sets.map(s => s.kg || 0));
   const full = sets.length >= it.sets && sets.every(s => s.reps >= hi);
   if(full){
-    const next = round1(roundStep(topKg + e.inc, e.inc >= 2.5 ? 2.5 : 1));
+    let next = round1(roundStep(topKg + inc, step)); if(next <= topKg) next = round1(topKg + step);
+    if(q.max && topKg > 0 && next > q.max){
+      if(topKg < q.max) next = q.max;
+      else return {kind:"cap", kg: topKg, text:"Tu es déjà à la charge maximale de ton matériel (" + fmt(q.max) + " kg). Pour progresser quand même : ajoute des reps au-delà de " + hi + " (jusqu'à " + (hi + 5) + " environ), puis descends plus lentement (3 secondes) ou marque 1 seconde de pause en bas."};
+    }
     return {kind:"up", kg: next, text:(sets.length > 1 ? "Toutes tes séries ont atteint " : "Tu as atteint ") + hi + " reps. Monte à " + fmt(next) + " " + u + (lo < hi ? " et repars du bas de la fourchette." : ".")};
   }
   const keep = topKg > 0 ? "Garde " + fmt(topKg) + " " + u : (e.zero ? "Garde le poids du corps" : "Garde la même charge");
@@ -796,7 +838,10 @@ function exoHTML(it, b){
   const lastTxt = last
     ? 'Dernière fois en ' + MODE_LABEL[mode].toLowerCase() + ' (' + fShort.format(dateOf(last.date)) + ') : <b class="num">' + last.sets.map(s => (s.kg ? fmt(s.kg)+"×" : "") + s.reps).join(" · ") + '</b>' + sideTxt(id)
     : "Pas encore de série " + (mode === "lourd" ? "lourde" : "légère") + " enregistrée pour cet exercice.";
-  const tag = sg.kind === "up" ? "Monte" : sg.kind === "warn" ? "Garde" : sg.kind === "same" ? "Objectif" : "Départ";
+  const tag = sg.kind === "up" ? "Monte" : sg.kind === "warn" ? "Garde" : sg.kind === "same" ? "Objectif" : sg.kind === "cap" ? "Au max" : "Départ";
+  const base = baseId(id), eqSum = eqSummary(id);
+  const eqBlock = '<div class="eq-row"><button type="button" class="eq-link" data-act="eq-toggle" data-base="'+base+'">Mon matériel : '+(eqSum || "non réglé")+(eqOpen === base ? " ▲" : " ▼")+'</button></div>'
+    + (eqOpen === base ? eqFormHTML(id) + '<p class="side-note">La charge max et le palier valent pour cet exercice partout dans l\'app. Exemple : haltères jusqu\'à 30 kg par paliers de 2 kg, poulie jusqu\'à 55 kg par paliers de 5 kg.</p>' : '');
   const fillBtn = (sg.kg != null && sg.kg > 0) ? '<button type="button" data-act="fill" data-exo="'+id+'">Mettre '+fmt(sg.kg)+' kg</button>' : "";
   const ph = (sg.kg != null && sg.kg > 0) ? fmtIn(sg.kg) : (e.zero ? "0" : "kg");
   const kgHead = e.unit === "kg de lest" ? "Lest (kg)" : "Charge (kg)";
@@ -814,7 +859,8 @@ function exoHTML(it, b){
     + (e.cue ? '<p class="cue">'+esc(e.cue)+'</p>' : '')
     + (it.emom && !(b && b.emom) ? '<div class="rest-row">'+emomBtn(it.emom)+'</div>' : '')
     + '<p class="last">'+lastTxt+'</p>'
-    + '<div class="sugg '+(sg.kind==="up"?"up":sg.kind==="warn"?"warn":"")+'"><span><span class="tag">'+tag+'</span>'+sg.text+'</span>'+fillBtn+'</div>'
+    + '<div class="sugg '+(sg.kind==="up"?"up":(sg.kind==="warn"||sg.kind==="cap")?"warn":"")+'"><span><span class="tag">'+tag+'</span>'+sg.text+'</span>'+fillBtn+'</div>'
+    + eqBlock
     + '<div class="sets">'+rows+'</div>'
     + '</article>';
 }
@@ -914,12 +960,14 @@ document.addEventListener("input", ev => {
     refreshState(id, i); refreshCounts(id); scheduleSave();
   } else if(el.id === "pickSearch"){ picker.q = el.value; renderPickerList(); }
   else if(el.dataset && el.dataset.ed) onEditorInput(el);
+  else if(el.dataset && el.dataset.eq){ setEquip(el); refreshEq(el.dataset.base); }
 });
 document.addEventListener("change", ev => {
   const el = ev.target;
   if(el.id === "dateInput"){ if(el.value) openDate(el.value); return; }
   if(el.id === "importFile"){ if(el.files && el.files[0]) importData(el.files[0]); return; }
   if(el.dataset && el.dataset.ed){ onEditorChange(el); return; }
+  if(el.dataset && el.dataset.eq){ setEquip(el); refreshEq(el.dataset.base); return; }
   if(!el.matches || !el.matches("#view-seance input[data-f='reps']") || !current) return;
   const id = el.dataset.exo, i = +el.dataset.i;
   if(!el.isConnected || !current.exos[id] || !current.exos[id][i]) return;
@@ -1245,6 +1293,7 @@ function itemHTML(b, bi, it, ii){
     + '<button type="button" data-act="i-max" data-bi="'+bi+'" data-ii="'+ii+'" aria-pressed="'+(!!it.max)+'">Reps max</button>'
     + '<button type="button" data-act="i-phase" data-bi="'+bi+'" data-ii="'+ii+'">+ Ajouter une série</button>'
     + '</span></div>'
+    + (phaseNo(it.id) === 1 && !e.zero ? '<div class="ed-row"><span class="lbl">Matériel</span>'+eqFormHTML(it.id)+'</div>' : '')
     + '</div>';
 }
 function distinctBases(b){ const s = []; b.items.forEach(it => { const x = baseId(it.id); if(s.indexOf(x) < 0) s.push(x); }); return s.length; }
@@ -1517,6 +1566,7 @@ document.addEventListener("click", ev => {
     dirty = true; flush();
     if(dirty){ if(m){ m.textContent = "La séance n'a pas pu être enregistrée sur ce téléphone."; m.classList.add("err"); } return; }
     stopTimer(); reviewFinished = false; renderSeance(); window.scrollTo(0,0);
+  } else if(act === "eq-toggle"){ eqOpen = eqOpen === a.dataset.base ? null : a.dataset.base; renderSeance();
   } else if(act === "review"){ reviewFinished = true; renderSeance(); window.scrollTo(0,0);
   } else if(act === "goto-hist"){ try{ history.replaceState(null, "", "#historique"); }catch(e){} showTab("historique");
   } else if(act === "today"){ openDate(todayIso());
@@ -1548,6 +1598,19 @@ if("serviceWorker" in navigator && (location.protocol === "https:" || location.h
   let reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => { if(!reloading && sessionGet("repere-reload") !== APP_VERSION + ":cc"){ reloading = true; sessionSet("repere-reload", APP_VERSION + ":cc"); flush(); location.reload(); } });
 }
+/* ===================== Saisie : champ toujours visible ===================== */
+function keepVisible(el){
+  if(!el || !el.isConnected || document.activeElement !== el) return;
+  const r = el.getBoundingClientRect();
+  const vv = window.visualViewport, top = vv ? vv.offsetTop : 0, h = vv ? vv.height : window.innerHeight;
+  if(r.top < top + 70 || r.bottom > top + h - 20) el.scrollIntoView({block:"center", behavior:"instant"});
+}
+document.addEventListener("focusin", ev => {
+  const el = ev.target;
+  if(!el.matches || !el.matches("input")) return;
+  [60, 300, 650, 1000].forEach(t => setTimeout(() => keepVisible(el), t));
+});
+if(window.visualViewport) window.visualViewport.addEventListener("resize", () => keepVisible(document.activeElement));
 /* ===================== Mises à jour ===================== */
 function sessionGet(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }
 function sessionSet(k, v){ try{ sessionStorage.setItem(k, v); }catch(e){} }
