@@ -575,7 +575,7 @@ const DEFAULT_PROGRAM = {v:2, custom:{}, days:{
   we:{title:"Repos", warm:"", blocs:[]}
 }};
 
-const APP_VERSION = "14";
+const APP_VERSION = "15";
 let swReg = null;
 const MODE_LABEL = {lourd:"Lourd", leger:"Léger"};
 const LS_KEY = "repere-musculation-seances";
@@ -740,7 +740,7 @@ function eqSummary(id){ const q = equipOf(id), parts = []; if(q.max) parts.push(
 function eqFormHTML(id){
   const q = equipOf(id), b = baseId(id);
   return '<div class="eq-form">'
-    + '<label>Charge max dispo (kg)<input type="text" inputmode="decimal" autocomplete="off" data-eq="max" data-base="'+b+'" value="'+(q.max != null ? fmtIn(q.max) : "")+'" placeholder="aucune"></label>'
+    + '<label>Charge max dispo (kg)<input type="text" inputmode="decimal" autocomplete="off" data-eq="max" data-base="'+b+'" value="'+(q.max != null ? fmtIn(q.max) : "")+'" placeholder="pas de limite"></label>'
     + '<label>Palier (kg)<input type="text" inputmode="decimal" autocomplete="off" data-eq="inc" data-base="'+b+'" value="'+(q.inc != null ? fmtIn(q.inc) : "")+'" placeholder="'+fmtIn(exo(b).inc)+'"></label></div>';
 }
 function setEquip(el){
