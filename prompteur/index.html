@@ -166,7 +166,9 @@ input[type=checkbox]{accent-color:var(--jaune);width:20px;height:20px}
     <p class="intro" id="finResume"></p>
     <div id="blocVideo" class="bloc" hidden>
       <video id="apercu" controls playsinline></video>
-      <button class="go" id="enregistrer">Enregistrer la vidéo</button>
+      <button class="go" id="enregistrer">Envoyer dans le Drive</button>
+      <p class="intro" style="font-size:14px">Dans le menu : <b style="color:var(--creme)">Enregistrer dans Fichiers</b>, puis <b style="color:var(--creme)">Google Drive › AER_tournages</b>, puis Enregistrer. La vidéo et ses repères y vont ensemble, déjà nommés. L'iPhone retient le dossier pour les fois suivantes.</p>
+      <button class="sec" id="galerie">Plutôt dans la galerie</button>
     </div>
     <p class="intro" id="finAide">Les repères pour le montage (temps comptés depuis le début de la vidéo) :</p>
     <textarea id="journal" readonly></textarea>
@@ -401,15 +403,30 @@ $('lecture').addEventListener('click',e=>{ const r=$('lecture').getBoundingClien
 function telechargerBlob(blob, nom){
   const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=nom; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000);
 }
-$('enregistrer').addEventListener('click',async()=>{
+function nomPrise(){
+  const t=TEXTES[texteIdx], d=+$('de').value, a=+$('a').value;
+  const p = d===a ? 'partie'+d : 'parties'+d+'-'+a;
+  const n=new Date(), z=x=>String(x).padStart(2,'0');
+  return t.code+'_'+p+'_'+n.getFullYear()+z(n.getMonth()+1)+z(n.getDate())+'_'+z(n.getHours())+'h'+z(n.getMinutes());
+}
+async function partager(avecReperes){
   if(!videoBlob) return;
-  const t=TEXTES[texteIdx], nom='prise_'+t.code+'_'+new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')+'.'+videoExt;
-  const f=new File([videoBlob],nom,{type:videoBlob.type||('video/'+videoExt)});
+  const base=nomPrise();
+  const fichiers=[new File([videoBlob],base+'.'+videoExt,{type:videoBlob.type||('video/'+videoExt)})];
+  if(avecReperes) fichiers.push(new File([$('journal').value],base+'_reperes.txt',{type:'text/plain'}));
   try{
-    if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); $('msg').textContent='Choisis « Enregistrer la vidéo » pour la mettre dans ta galerie.'; return; }
-  }catch(e){ if(e && e.name==='AbortError'){ $('msg').textContent='Enregistrement annulé. Appuie de nouveau quand tu veux.'; return; } }
-  telechargerBlob(videoBlob, nom); $('msg').textContent='Vidéo téléchargée (dossier Téléchargements).';
-});
+    let liste=fichiers;
+    if(navigator.canShare && !navigator.canShare({files:liste})) liste=[fichiers[0]];
+    if(navigator.canShare && navigator.canShare({files:liste})){
+      await navigator.share({files:liste});
+      $('msg').textContent = avecReperes ? 'Envoyé. Vérifie dans Google Drive › AER_tournages.' : 'Choisis « Enregistrer la vidéo » pour la galerie.';
+      return;
+    }
+  }catch(e){ if(e && e.name==='AbortError'){ $('msg').textContent='Envoi annulé. Appuie de nouveau quand tu veux.'; return; } }
+  fichiers.forEach(f=>telechargerBlob(f,f.name)); $('msg').textContent='Fichiers téléchargés (dossier Téléchargements).';
+}
+$('enregistrer').addEventListener('click',()=>partager(true));
+$('galerie').addEventListener('click',()=>partager(false));
 window.addEventListener('beforeunload',e=>{ if(videoBlob){ e.preventDefault(); e.returnValue=''; } });
 
 /* ----- Repères ----- */
