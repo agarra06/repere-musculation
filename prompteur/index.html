@@ -151,6 +151,7 @@ details.bloc summary{cursor:pointer;font-size:15px;font-weight:700;padding:4px 0
 
     <button class="go" id="lancer">Lancer</button>
 
+    <p class="etiq" id="versionAff" style="text-transform:none">Version 25/11 18 h 26</p>
     <div class="aide">
       <b style="color:var(--creme)">Pendant la prise.</b> « Suivante » passe à la phrase d'après. « Je reprends » remet la phrase à zéro et note une reprise pour le montage. Sur ordinateur : <kbd>→</kbd> ou <kbd>Entrée</kbd> suivante, <kbd>←</kbd> ou <kbd>R</kbd> je reprends, <kbd>Espace</kbd> pause, <kbd>↑</kbd> phrase précédente, <kbd>Échap</kbd> arrêter.<br><br>
       <b style="color:var(--creme)">Les reprises.</b> Chaque « Je reprends » est noté avec le temps exact dans la vidéo. À la fin, tu récupères cette liste pour le montage. Conseil : une vidéo par partie, c'est plus léger pour le téléphone.
@@ -265,6 +266,20 @@ function majResume(){
 $('taille').addEventListener('input',()=>{ $('tailleOut').textContent=(+$('taille').value).toFixed(1).replace('.',','); document.documentElement.style.setProperty('--taille',$('taille').value+'vmin'); store.set('p_taille',$('taille').value); });
 const tSauve = store.get('p_taille') || (innerHeight>innerWidth ? '10' : null); if(tSauve){$('taille').value=tSauve; $('taille').dispatchEvent(new Event('input'));}
 rendreTextes(); rendreParties();
+
+/* ----- Mise à jour automatique ----- */
+const VERSION='25/11 18 h 26';
+async function verifierVersion(){
+  if($('reglages').hidden) return; // jamais pendant une prise ni avant d'avoir envoyé la vidéo
+  try{
+    const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return;
+    const v=(await r.text()).trim();
+    if(v && v!==VERSION && new URLSearchParams(location.search).get('v')!==v){ $('versionAff').textContent='Nouvelle version, chargement…'; location.replace(location.pathname+'?v='+encodeURIComponent(v)); }
+  }catch(e){}
+}
+verifierVersion();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') verifierVersion(); });
+window.addEventListener('pageshow',e=>{ if(e.persisted) verifierVersion(); });
 
 /* ----- Texte collé ----- */
 function decouper(txt){
