@@ -1,5 +1,5 @@
 /* Repère Musculation : fonctionne hors connexion à la salle, et se met à jour toute seule. */
-const CACHE = "repere-v15";
+const CACHE = "repere-v16";
 const SHELL = [
   "./",
   "./index.html",
@@ -40,8 +40,8 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // Les autres apps rangées dans un sous-dossier (cap2000/, suivi/) gèrent elles-mêmes leurs fichiers.
-  if (url.origin === self.location.origin && ["./cap2000/", "./suivi/"].some((d) => url.pathname.startsWith(new URL(d, self.registration.scope).pathname))) return;
+  // Les autres apps rangées dans un sous-dossier (cap2000/, suivi/, prompteur/) gèrent elles-mêmes leurs fichiers.
+  if (url.origin === self.location.origin && ["./cap2000/", "./suivi/", "./prompteur/"].some((d) => url.pathname.startsWith(new URL(d, self.registration.scope).pathname))) return;
 
   // La page : toujours la version du serveur ; la copie en cache ne sert que hors connexion.
   if (req.mode === "navigate") {
