@@ -112,7 +112,7 @@ details.bloc summary{cursor:pointer;font-size:15px;font-weight:700;padding:4px 0
       <div class="choix" id="listeTextes"></div>
       <details class="bloc" id="blocColler">
         <summary>Coller un autre texte (un nouveau Short…)</summary>
-        <textarea class="saisie" id="texteColle" placeholder="Une phrase par ligne. Ce qui est entre crochets [ ] n'est pas affiché."></textarea>
+        <textarea class="saisie" id="texteColle" placeholder="Une phrase par ligne. Ce qui est entre crochets [ ] n'est pas affiché. Un lien YouTube dans le texte devient la vidéo de réaction."></textarea>
         <button class="sec" id="utiliserTexte">Utiliser ce texte</button>
       </details>
     </div>
@@ -151,7 +151,7 @@ details.bloc summary{cursor:pointer;font-size:15px;font-weight:700;padding:4px 0
 
     <button class="go" id="lancer">Lancer</button>
 
-    <p class="etiq" id="versionAff" style="text-transform:none">Version 25/11 18 h 26</p>
+    <p class="etiq" id="versionAff" style="text-transform:none">Version 25/11 18 h 30</p>
     <div class="aide">
       <b style="color:var(--creme)">Pendant la prise.</b> « Suivante » passe à la phrase d'après. « Je reprends » remet la phrase à zéro et note une reprise pour le montage. Sur ordinateur : <kbd>→</kbd> ou <kbd>Entrée</kbd> suivante, <kbd>←</kbd> ou <kbd>R</kbd> je reprends, <kbd>Espace</kbd> pause, <kbd>↑</kbd> phrase précédente, <kbd>Échap</kbd> arrêter.<br><br>
       <b style="color:var(--creme)">Les reprises.</b> Chaque « Je reprends » est noté avec le temps exact dans la vidéo. À la fin, tu récupères cette liste pour le montage. Conseil : une vidéo par partie, c'est plus léger pour le téléphone.
@@ -223,10 +223,10 @@ function rendreTextes(){
     const n = t.parties.reduce((s,p)=>s+p.phrases.length,0);
     const lab = document.createElement('label');
     const inp = document.createElement('input'); inp.type='radio'; inp.name='texte'; inp.id='t_'+t.code; inp.checked = i===texteIdx;
-    inp.addEventListener('change',()=>{texteIdx=i; store.set('p_texte',t.code); rendreParties();});
+    inp.addEventListener('change',()=>{texteIdx=i; store.set('p_texte',t.code); rendreParties(); videoDuTexte();});
     const d = document.createElement('div');
     const b = document.createElement('b'); b.textContent = t.code + ' · ' + t.titre;
-    const s = document.createElement('small'); s.textContent = t.parties.length + ' parties, ' + n + ' phrases' + (t.note ? ' · ' + t.note : '');
+    const s = document.createElement('small'); s.textContent = (t.video ? 'Vidéo de réaction incluse · ' : '') + t.parties.length + ' parties, ' + n + ' phrases' + (t.note ? ' · ' + t.note : '');
     d.append(b,s); lab.append(inp,d); box.append(lab);
   });
 }
@@ -268,7 +268,7 @@ const tSauve = store.get('p_taille') || (innerHeight>innerWidth ? '10' : null); 
 rendreTextes(); rendreParties();
 
 /* ----- Mise à jour automatique ----- */
-const VERSION='25/11 18 h 26';
+const VERSION='25/11 18 h 30';
 async function verifierVersion(){
   if($('reglages').hidden) return; // jamais pendant une prise ni avant d'avoir envoyé la vidéo
   try{
@@ -282,9 +282,11 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 window.addEventListener('pageshow',e=>{ if(e.persisted) verifierVersion(); });
 
 /* ----- Texte collé ----- */
+function lienDans(txt){ const m=String(txt).match(/https?:\/\/\S*(?:youtu\.be|youtube\.com)\S*/i); return m?m[0]:null; }
 function decouper(txt){
   const out=[];
   txt.split(/\n+/).forEach(L=>{
+    if(/youtu\.?be/i.test(L) && /https?:\/\//.test(L)) return;
     L=L.replace(/\[[^\]]*\]/g,'').replace(/^\s*\d+\s+[FP]\s+/,'').replace(/[«»]/g,'').replace(/…/g,'').trim();
     if(!L) return;
     L.split(/(?<=[.?!])\s+(?=[A-ZÀÂÉÈÊÎÔÛÇ0-9])/).forEach(s=>{ s=s.trim(); if(s) out.push({t:s, h: s.endsWith('?')?'Vraie question : la voix monte à la fin.':(/\d/.test(s)?'Détache le chiffre.':'Naturel, regard dans l’objectif.'), v:'normal'}); });
@@ -294,13 +296,12 @@ function decouper(txt){
 function chargerPerso(txt){
   const ph=decouper(txt); if(!ph.length) return false;
   const i=TEXTES.findIndex(t=>t.code==='PERSO');
-  const t={code:'PERSO',titre:'Mon texte collé',note:ph.length+' phrases',parties:[{titre:'Texte collé',phrases:ph}]};
+  const t={code:'PERSO',titre:'Mon texte collé',note:ph.length+' phrases',video:lienDans(txt),parties:[{titre:'Texte collé',phrases:ph}]};
   if(i>=0) TEXTES[i]=t; else TEXTES.push(t);
   texteIdx=TEXTES.findIndex(x=>x.code==='PERSO'); store.set('p_perso',txt); store.set('p_texte','PERSO');
-  rendreTextes(); rendreParties(); return true;
+  rendreTextes(); rendreParties(); videoDuTexte(); return true;
 }
 $('utiliserTexte').addEventListener('click',()=>{ if(chargerPerso($('texteColle').value)) $('blocColler').open=false; });
-(function(){ const s=store.get('p_perso'); if(s){ $('texteColle').value=s; const keep=store.get('p_texte'); chargerPerso(s); if(keep!=='PERSO'){ const k=TEXTES.findIndex(t=>t.code===keep); if(k>=0){texteIdx=k; store.set('p_texte',keep); rendreTextes(); rendreParties();} } } })();
 
 /* ----- Vidéo de réaction ----- */
 let reacSrc=null, ytPlayer=null, ytPret=null, fichierUrl=null;
@@ -314,7 +315,15 @@ function majEtatVideo(){
 $('lienVideo').addEventListener('change',()=>{ const v=$('lienVideo').value.trim(); if(!v){ reacSrc=null; majEtatVideo(); return; } const y=idYouTube(v); if(y){ reacSrc=Object.assign({type:'yt'},y); } else { reacSrc=null; $('etatVideo').textContent='Ce lien n’est pas un lien YouTube. Copie le lien depuis le bouton « Partager » de YouTube.'; return; } majEtatVideo(); });
 $('fichierVideo').addEventListener('change',()=>{ const f=$('fichierVideo').files[0]; if(!f) return; if(fichierUrl) URL.revokeObjectURL(fichierUrl); fichierUrl=URL.createObjectURL(f); reacSrc={type:'fichier',url:fichierUrl,nom:f.name}; $('lienVideo').value=''; majEtatVideo(); });
 $('sansVideo').addEventListener('click',()=>{ reacSrc=null; $('lienVideo').value=''; $('fichierVideo').value=''; majEtatVideo(); });
+function videoDuTexte(){
+  const t=TEXTES[texteIdx]; if(!t) return;
+  if(t.video){ const y=idYouTube(t.video); if(y){ reacSrc=Object.assign({type:'yt',auto:true},y); $('lienVideo').value=t.video; } }
+  else if(reacSrc && reacSrc.auto){ reacSrc=null; $('lienVideo').value=''; }
+  majEtatVideo();
+}
 majEtatVideo();
+(function(){ const s=store.get('p_perso'); if(s){ $('texteColle').value=s; const keep=store.get('p_texte'); chargerPerso(s); if(keep!=='PERSO'){ const k=TEXTES.findIndex(t=>t.code===keep); if(k>=0){texteIdx=k; store.set('p_texte',keep); rendreTextes(); rendreParties();} } } })();
+videoDuTexte();
 function chargerApiYT(){
   if(ytPret) return ytPret;
   ytPret=new Promise(res=>{ if(window.YT&&YT.Player){res();return;} window.onYouTubeIframeAPIReady=res; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.append(s); });
